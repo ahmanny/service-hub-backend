@@ -1,7 +1,7 @@
 import InvalidAccessCredentialsExceptions from "../exceptions/InvalidAccessCredentialsException";
 import { getUserByEmail, getUserByName, getUserByRole, User } from "../models/user.model";
 import { forgottenPasswordPayloadInterface, LoginPayloadInterface, passwordResetPayloadInterface, SignupPayloadInterface } from "../types/auth.types";
-import bcrypt from 'bcrypt';
+import bcrypt from 'bcryptjs'
 import { generateTokens, getTokenInfo } from "../utils";
 import Exception from "../exceptions/Exception";
 import { EmailService } from "./email.service";
