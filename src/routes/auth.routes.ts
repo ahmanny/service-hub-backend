@@ -8,7 +8,7 @@ export const auth = Router();
 auth.post('/sign-up', controller.signup())
 auth.post('/login', controller.loginController())
 auth.post('/logout', controller.logoutController())
-auth.post('/refresh-token', controller.refreshToken())
+auth.post('/refresh', controller.refreshToken())
 auth.post('/forgotten-password', controller.forgottenPasswordController())
 auth.post('/password-reset', controller.passwordResetController());
 

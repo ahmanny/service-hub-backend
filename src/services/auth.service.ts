@@ -62,7 +62,7 @@ class AuthServiceClass {
         const validPassword = await bcrypt.compare(payload.password, user.password);
         // check if user entered a correct password
         if (!validPassword) {
-            throw new InvalidAccessCredentialsExceptions("Invalid credentials")
+            throw new InvalidAccessCredentialsExceptions("Wrong password")
         }
         const tokens = await generateTokens(user);
         return {
@@ -137,7 +137,8 @@ class AuthServiceClass {
     public async passwordResetFunction(payload: passwordResetPayloadInterface) {
         const secret = process.env.JWT_SECRET as string
         const decoded = jwt.verify(payload.token, secret) as JwtPayload
-        const user = await getUserByEmail(decoded.email)
+
+        const user = await User.findById(decoded.id)
         // check if a user with the email exist
         if (!user) {
             throw new InvalidAccessCredentialsExceptions("invalid credential")

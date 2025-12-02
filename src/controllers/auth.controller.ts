@@ -11,7 +11,6 @@ export const signup = (): RequestHandler => {
             const data = await AuthService.signUpFunction(req.body)
             created_handler(res, "account successfully creatd", data)
         } catch (error) {
-            console.log(error);
             error_handler(error, req, res)
         }
     }
@@ -27,7 +26,6 @@ export const loginController = (): RequestHandler => {
 
             ok_handler(res, "logged in successfully", data)
         } catch (error) {
-            console.log(error);
             error_handler(error, req, res)
         }
     }
@@ -41,7 +39,6 @@ export const logoutController = (): RequestHandler => {
             await AuthService.logoutFunction(refresh_token)
             ok_handler(res, "Logged out successfully")
         } catch (error) {
-            console.log(error)
             error_handler(error, req, res)
         }
     }
@@ -49,7 +46,7 @@ export const logoutController = (): RequestHandler => {
 
 // refresh user session token controller
 export const refreshToken = (): RequestHandler => {
-    return async (req: Request, res: Response): Promise<void> => {  
+    return async (req: Request, res: Response): Promise<void> => {
 
         try {
             const { refresh_token } = req.body;
@@ -84,9 +81,12 @@ export const forgottenPasswordController = (): RequestHandler => {
 export const passwordResetController = (): RequestHandler => {
     return async (req: express.Request, res: express.Response): Promise<void> => {
         try {
-            const { token } = req.params
-            await AuthService.passwordResetFunction({ ...req.body, token: token })
-            ok_handler(res, "password succesfully reseted")
+            const { token, newPassword } = req.body
+            if (!token || !newPassword) {
+                throw new MissingParameterException("Token and new password are required")
+            }
+            await AuthService.passwordResetFunction({ token, password: newPassword })
+            ok_handler(res, "password succesfully reset")
         } catch (error) {
             error_handler(error, req, res)
         }

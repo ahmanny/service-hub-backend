@@ -12,24 +12,44 @@ export const updateUserController = (): RequestHandler => {
             if (!req.user) {
                 throw new UnauthorizedAccessException("Unauthorized");
             }
-            const data = {
-                shippingAddress: req.body
-            };
+
+            // Allowed fields for updating
+            const allowedFields = [
+                "name",
+                "firstname",
+                "lastname",
+                "phone",
+                "shippingAddress",
+                "avatar"
+            ];
+
+            const updates: Record<string, any> = {};
+
+            // Only copy allowed fields from req.body
+            for (const field of allowedFields) {
+                if (req.body[field] !== undefined) {
+                    updates[field] = req.body[field];
+                }
+            }
+
             const updatedUser = await User.findByIdAndUpdate(
                 req.user._id,
-                { $set: data },
+                { $set: updates },
                 { new: true }
             ).select("-password");
+
             if (!updatedUser) {
                 throw new Exception("No changes were made");
             }
+
             ok_handler(res, "User updated successfully");
 
         } catch (error) {
-            error_handler(error, req, res)
+            error_handler(error, req, res);
         }
-    }
-}
+    };
+};
+
 
 
 
