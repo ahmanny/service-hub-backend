@@ -30,6 +30,18 @@ export const loginController = (): RequestHandler => {
         }
     }
 }
+// login controller
+export const googleLoginController = (): RequestHandler => {
+    return async (req: express.Request, res: express.Response): Promise<void> => {
+        try {
+            const data = await AuthService.googleLoginFunction(req.body)
+
+            ok_handler(res, "logged in successfully", data)
+        } catch (error) {
+            error_handler(error, req, res)
+        }
+    }
+}
 
 // logout controller
 export const logoutController = (): RequestHandler => {

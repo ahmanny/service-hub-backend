@@ -10,6 +10,7 @@ import { RefreshToken } from "../models/refresh-token.model";
 import ConflictException from "../exceptions/ConflictException";
 import ResourceNotFoundException from "../exceptions/ResourceNotFoundException";
 import { sanitizeUser } from "../utils/user.utils";
+import axios from "axios";
 
 
 class AuthServiceClass {
@@ -63,6 +64,39 @@ class AuthServiceClass {
         // check if user entered a correct password
         if (!validPassword) {
             throw new InvalidAccessCredentialsExceptions("Wrong password")
+        }
+        const tokens = await generateTokens(user);
+        return {
+            user: sanitizeUser(user),
+            tokens
+        }
+    }
+    // login service for user
+    public async googleLoginFunction(payload: { access_token: string }) {
+        if (!payload.access_token) {
+            throw new InvalidAccessCredentialsExceptions("Missing Google access token")
+        }
+
+        // 1. Fetch Google profile
+        const googleRes = await axios.get(
+            `https://www.googleapis.com/oauth2/v1/userinfo?alt=json&access_token=${payload.access_token}`
+        );
+
+        const { email, name, picture } = googleRes.data
+
+        let user = await getUserByEmail(email)
+
+        // check if the user exists
+        if (!user) {
+            // Create a new user if not exists
+            user = await User.create({
+                name,
+                email,
+                password: null,
+                isVerified: true,
+                profilePicture: picture,
+                provider: "google",
+            });
         }
         const tokens = await generateTokens(user);
         return {
