@@ -1,26 +1,16 @@
-import { Router, Request, Response } from 'express';
-import { user } from './user.route';
-import { auth } from './auth.routes';
-import { UserMiddleware } from '../middlewares';
-import { admin } from './admin.routes';
-
+import { Router } from 'express';
+import authRoutes from './auth';
+import { consumerRoutes } from './consumer.route';
+import { adminRoutes } from './admin.routes';
 const routes = Router();
-const userMiddleware = new UserMiddleware();
 
-// Home route
-routes.get('/', (req: Request, res: Response) => {
-    res.send('Welcome to my Starter template!');
+routes.get('/', (_req, res) => {
+    res.send('welcome Service Hub!');
 });
 
-// API routes
-// authentication not required
-routes.use('/authentication', auth);
-routes.use('/user', user);
-
-// authentication required
-routes.use(userMiddleware.validateToken)
-routes.use('/admin', admin);
-
-
+// group by domain
+routes.use('/auth', authRoutes);
+routes.use('/consumer', consumerRoutes);
+routes.use('/admin', adminRoutes);
 
 export default routes;

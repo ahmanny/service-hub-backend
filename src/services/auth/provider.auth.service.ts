@@ -1,43 +1,37 @@
-import InvalidAccessCredentialsExceptions from "../exceptions/InvalidAccessCredentialsException";
-import { getUserByEmail, getUserByName, getUserByRole, User } from "../models/user.model";
-import { forgottenPasswordPayloadInterface, LoginPayloadInterface, passwordResetPayloadInterface, SignupPayloadInterface } from "../types/auth.types";
 import bcrypt from 'bcryptjs'
-import { generateTokens, getTokenInfo } from "../utils";
-import Exception from "../exceptions/Exception";
-import { EmailService } from "./email.service";
 import jwt, { JwtPayload } from 'jsonwebtoken';
-import { RefreshToken } from "../models/refresh-token.model";
-import ConflictException from "../exceptions/ConflictException";
-import ResourceNotFoundException from "../exceptions/ResourceNotFoundException";
-import { sanitizeUser } from "../utils/user.utils";
+import { generateTokens, getConsumerTokenInfo, sanitizeUser } from "../../utils";
 import axios from "axios";
+import { ConsumerLoginPayloadInterface, ConsumerSignupPayloadInterface, forgotPasswordPayloadInterface, passwordResetPayloadInterface } from "../../types/consumer";
+import { Consumer, getConsumerByEmail } from "../../models/consumer.model";
+import InvalidAccessCredentialsExceptions from '../../exceptions/InvalidAccessCredentialsException';
+import ConflictException from '../../exceptions/ConflictException';
+import ResourceNotFoundException from '../../exceptions/ResourceNotFoundException';
+import { RefreshToken } from '../../models/refresh-token.model';
+import { EmailService } from '../email.service';
 
 
-class AuthServiceClass {
+class ProviderAuthServiceClass {
     constructor() {
         // super()
     }
 
-    // registration of new customerr
-    public async signUpFunction(payload: SignupPayloadInterface) {
-
-        if (!payload.name || !payload.email || !payload.password) {
-            throw new InvalidAccessCredentialsExceptions("Invalid Credentials")
+    // registration of new consumer
+    public async signUpFunction(payload: ConsumerSignupPayloadInterface) {
+        if (!payload.firstName || !payload.lastName || !payload.email || !payload.password) {
+            throw new InvalidAccessCredentialsExceptions("Please Provide your credentials")
         }
-        const user_name = await getUserByName(payload.name)
-        const user_email = await getUserByEmail(payload.email)
+        const user_email = await getConsumerByEmail(payload.email)
 
         // check if a user with the name and email exists
-        if (user_name && user_email) {
-            throw new ConflictException('Account already exist');
-        } else if (user_email) {
+        if (user_email) {
             throw new ConflictException('Email already exists');
         }
 
         // encript password before storing in the db
         const salt = await bcrypt.genSalt();
         const hashedPassword = await bcrypt.hash(payload.password, salt);
-        const user = await User.create({ ...payload, password: hashedPassword });
+        const user = await Consumer.create({ ...payload, password: hashedPassword });
 
         const tokens = await generateTokens(user);
         return {
@@ -46,21 +40,24 @@ class AuthServiceClass {
         }
     }
 
-
-
-
-    // login service for user
-    public async loginFunction(payload: LoginPayloadInterface) {
+    // login service for Consumer
+    public async loginFunction(payload: ConsumerLoginPayloadInterface) {
         if (!payload.email || !payload.password) {
             throw new InvalidAccessCredentialsExceptions("Invalid Credentials")
         }
-        const user = await getUserByEmail(payload.email)
+        const user = await getConsumerByEmail(payload.email).lean()
 
         // check if the user exists
         if (!user) {
             throw new ResourceNotFoundException("User by this email does not exists")
         }
-        const validPassword = await bcrypt.compare(payload.password, user.password);
+
+        // if (!user.password) {
+        //     throw new InvalidAccessCredentialsExceptions(
+        //         `User registered with ${user.provider}, please login with your provider`
+        //     );
+        // }
+        const validPassword = await bcrypt.compare(payload.password, user.phone);
         // check if user entered a correct password
         if (!validPassword) {
             throw new InvalidAccessCredentialsExceptions("Wrong password")
@@ -71,30 +68,34 @@ class AuthServiceClass {
             tokens
         }
     }
+
     // login service for user
     public async googleLoginFunction(payload: { access_token: string }) {
         if (!payload.access_token) {
             throw new InvalidAccessCredentialsExceptions("Missing Google access token")
         }
 
-        // 1. Fetch Google profile
+        // Fetch Google profile
         const googleRes = await axios.get(
             `https://www.googleapis.com/oauth2/v1/userinfo?alt=json&access_token=${payload.access_token}`
         );
 
         const { email, name, picture } = googleRes.data
+        const [firstName, ...rest] = name.split(" ");
+        const lastName = rest.join(" ") || "";
 
-        let user = await getUserByEmail(email)
+        let user = await getConsumerByEmail(email).lean()
 
         // check if the user exists
         if (!user) {
             // Create a new user if not exists
-            user = await User.create({
-                name,
+            user = await Consumer.create({
+                firstName,
+                lastName,
                 email,
-                password: null,
+                password: null, // OAuth users don't have local password
                 isVerified: true,
-                profilePicture: picture,
+                avatarUrl: picture,
                 provider: "google",
             });
         }
@@ -105,16 +106,14 @@ class AuthServiceClass {
         }
     }
 
-
-
     // logout service for user
     public async logoutFunction(refresh_token: string) {
-        // 1. check if the token is in the db
+        // check if the token is in the db
         const tokenInDb = await RefreshToken.findOne({ refresh_token });
         if (!tokenInDb) {
             throw new InvalidAccessCredentialsExceptions("Invalid refresh token")
         }
-        // 2. delete the token from the db
+        // delete the token from the db
         await RefreshToken.deleteOne({ refresh_token });
     }
 
@@ -122,7 +121,7 @@ class AuthServiceClass {
     // refresh users session using refreshtoken
     public async refreshUserToken(refresh_token: string) {
 
-        const token_info = await getTokenInfo({
+        const token_info = await getConsumerTokenInfo({
             token: refresh_token,
             token_type: 'refresh',
         });
@@ -132,12 +131,12 @@ class AuthServiceClass {
             throw new InvalidAccessCredentialsExceptions("Invalid or expired refresh token")
         }
 
-        // 2. Check if token is in DB
+        // Check if token is in DB
         const tokenInDb = await RefreshToken.findOne({ refresh_token: refresh_token, user_id: token_info?.user._id });
         if (!tokenInDb) {
             throw new ResourceNotFoundException("Refresh token not found in DB")
         }
-        const user = await getUserByEmail(token_info?.user?.email)
+        const user = await getConsumerByEmail(token_info?.user?.email!)
         if (!user) {
             throw new ResourceNotFoundException("User not found")
         }
@@ -152,17 +151,22 @@ class AuthServiceClass {
     }
     // forgotten password service
 
-    public async forgottenPasswordFunction(payload: forgottenPasswordPayloadInterface) {
-        const user = await getUserByEmail(payload.email)
+    public async forgottenPasswordFunction(payload: forgotPasswordPayloadInterface) {
+        const user = await getConsumerByEmail(payload.email)
 
 
         // check if a user with the email exist
         if (!user) {
             throw new InvalidAccessCredentialsExceptions("Account does not exist")
         }
-        const data = await EmailService.sendUserResetPasswordEmail({ email: user.email, name: user.name, id: user._id })
+        // const data = await EmailService.sendUserResetPasswordEmail({
+        //     id: user._id,
+        //     email: user.email,
+        //     firstName: user.firstName,
+        //     lastName: user.lastName
+        // })
         return {
-            data
+            data: "sent"
         }
     }
 
@@ -172,19 +176,19 @@ class AuthServiceClass {
         const secret = process.env.JWT_SECRET as string
         const decoded = jwt.verify(payload.token, secret) as JwtPayload
 
-        const user = await User.findById(decoded.id)
+        const user = await Consumer.findById(decoded.id)
         // check if a user with the email exist
         if (!user) {
             throw new InvalidAccessCredentialsExceptions("invalid credential")
         }
-        // check if user is verified
-        if (!user.isVerified) {
-            throw new Exception('User not registered')
-        }
+        // // check if user is verified
+        // if (!user.isVerified) {
+        //     throw new Exception('User not registered')
+        // }
 
         const salt = await bcrypt.genSalt();
         const hashedPassword = await bcrypt.hash(payload.password, salt);
-        user.password = hashedPassword;
+        // user.password = hashedPassword;
         user.save()
     }
 
@@ -193,22 +197,22 @@ class AuthServiceClass {
 
     public async create_Superadmin() {
         const admin = {
-            name: 'Super admin',
-            email: 'arab@mailinator.com',
+            name: "Alice",
             phone: '00000000001',
+            email: "arab@mailinator.com",
             password: "1234567890",
-            role: 'admin',
-            isVerified: true
+            isVerified: true,
+            location: {
+                type: "Point",
+                coordinates: [3.3792, 6.5244] // lng, lat
+            }
         }
-        const admin_acct = await getUserByRole(admin.role)
-        if (!admin_acct) {
-            const salt = await bcrypt.genSalt();
-            const hashedPassword = await bcrypt.hash(admin.password, salt);
-            const new_admin = await User.create({ ...admin, password: hashedPassword });
-            console.log('created a admin');
-            console.log(new_admin);
+        const salt = await bcrypt.genSalt();
+        const hashedPassword = await bcrypt.hash(admin.password, salt);
+        const new_admin = await Consumer.create({ ...admin, password: hashedPassword });
+        console.log('created a admin');
+        console.log(new_admin);
 
-        }
 
     }
 
@@ -250,7 +254,7 @@ class AuthServiceClass {
     //     }
     // }
 }
-export const AuthService = new AuthServiceClass();
+export const ProviderAuthService = new ProviderAuthServiceClass();
 
 
 

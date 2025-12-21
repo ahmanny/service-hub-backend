@@ -1,56 +1,27 @@
 import fs from 'fs/promises'; // Correct fs import
 import Handlebars from 'handlebars';
 import path from 'path';
-import { getUserByEmail, updateUserByEmail } from '../models/user.model';
-import { deleteUserOtpById, getUserOtpById, otpCode } from '../models/otp.model';
+import { getConsumerByEmail } from '../models/consumer.model';
+import { deleteUserOtpById, getUserOtpById } from '../models/otp.model';
 import Exception from '../exceptions/Exception';
 import { authenticator } from 'otplib';
+import crypto from "crypto";
 
 interface OtpEmailData {
-    user_name: string;
     otpCode: string;
 }
 
 
+export function generateNumericOtp(): string {
+    return Math.floor(1000 + Math.random() * 9000).toString();
+}
 
-
-
-export async function generateOTP(user_email: string) {
-    const user = await getUserByEmail(user_email);
-    if (!user) {
-        throw new Exception("Invalid User ID");
-    }
-    const userId = user._id;
-
-
-    authenticator.options = {
-        window: 20,
-        digits: 6,
-    };
-
-    const secret = authenticator.generateSecret();
-    const otp = authenticator.generate(secret);
-    const expirationTime = Date.now() + (10 * 60 * 1000);
-
-    const otpRecord = await getUserOtpById(userId);
-    if (otpRecord) {
-        await deleteUserOtpById(userId);
-    }
-
-    const values = {
-        userId,
-        otpExpiration: expirationTime,
-        secret,
-    };
-
-    await otpCode.create(values);
-
-    return otp;
+export function hashOtp(otp: string): string {
+    return crypto.createHash("sha256").update(otp).digest("hex");
 }
 
 
-
-export async function getOtpEmailContent({ user_name, otpCode }: OtpEmailData): Promise<string> {
+export async function getOtpEmailContent({ otpCode }: OtpEmailData): Promise<string> {
     try {
         const templatePath = path.resolve(__dirname, '..', 'templates', 'otpCode_templates.hbs');
 
@@ -58,7 +29,7 @@ export async function getOtpEmailContent({ user_name, otpCode }: OtpEmailData): 
 
         const template = Handlebars.compile(templateSource);
 
-        return template({ user_name, otpCode });
+        return template({ year: new Date().getFullYear(), otpCode });
     } catch (error) {
         console.error("Error reading or compiling template:", error);
         throw error;

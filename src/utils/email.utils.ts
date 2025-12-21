@@ -6,11 +6,12 @@ import path from 'path';
 interface resetPasswordEmailData {
     token: string,
     email: string,
-    name: string
+    firstName: string,
+    lastName: string,
 }
 
 
-export async function getVerificationEmailContent({ token, email, name }: resetPasswordEmailData): Promise<string> {
+export async function getVerificationEmailContent({ token, email, firstName, lastName }: resetPasswordEmailData): Promise<string> {
     try {
         const clientResetPasswordUrl = process.env.CLIENT_RESET_PASSWORD_URL || 'http://localhost:3000/auth/reset-password'
         const templatePath = path.resolve(__dirname, '..', 'templates', 'resetPasswordEmail.template.hbs');
@@ -19,7 +20,11 @@ export async function getVerificationEmailContent({ token, email, name }: resetP
 
         const template = Handlebars.compile(templateSource);
 
-        return template({ token, email, name: encodeURIComponent(name), clientResetPasswordUrl, encodeEmail: encodeURIComponent(email) });
+        return template({
+            token, email, firstName: encodeURIComponent(firstName),
+            lastName: encodeURIComponent(lastName), clientResetPasswordUrl,
+            encodeEmail: encodeURIComponent(email)
+        });
     } catch (error) {
         console.error("Error reading or compiling template:", error);
         throw error;

@@ -8,6 +8,7 @@ import AuthenticationTokenException from '../exceptions/AuthenticationTokenExcep
 import MissingParameterException from '../exceptions/MissingParameterException';
 import ResourceNotFoundException from '../exceptions/ResourceNotFoundException';
 import ConflictException from '../exceptions/ConflictException';
+import TooManyAttemptsException from '../exceptions/TooManyAttemptsException';
 import mongoose from 'mongoose';
 const HTTP_OK = 200;
 const HTTP_CREATED = 201;
@@ -17,8 +18,10 @@ const HTTP_RESOURCE_NOT_FOUND = 404;
 const HTTP_INTERNAL_SERVER_ERROR = 500;
 const HTTP_UNAUTHORIZED = 401;
 const HTTP_FORBIDDEN = 403;
+const HTTP_TOO_MANY_ATTEMPTS = 429;
 
 export const error_handler = (error: unknown, req: Request, res: Response) => {
+	console.log(error)
 	if (error instanceof Exception) {
 		res.locals.message = error.message;
 		if (error instanceof InvalidAccessCredentialsExceptions) {
@@ -53,6 +56,11 @@ export const error_handler = (error: unknown, req: Request, res: Response) => {
 			});
 		} else if (error instanceof ResourceNotFoundException) {
 			res.status(HTTP_RESOURCE_NOT_FOUND).json({
+				message: error.message,
+				code: error.code,
+			});
+		} else if (error instanceof TooManyAttemptsException) {
+			res.status(HTTP_TOO_MANY_ATTEMPTS).json({
 				message: error.message,
 				code: error.code,
 			});

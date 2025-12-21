@@ -1,5 +1,4 @@
-import { TUser } from "../../types";
-import { Productinterface } from "../../types/product.types";
+import { ConsumerType } from "../../types/consumer";
 
 
 
@@ -9,9 +8,8 @@ import { Productinterface } from "../../types/product.types";
 declare global {
     namespace Express {
         interface Request {
-            user?: TUser;
+            consumer?: ConsumerType;
             cloudinaryUrls?: string[];
-            product?: Productinterface;
         }
     }
 }

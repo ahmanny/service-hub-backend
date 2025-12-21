@@ -1,5 +1,4 @@
 import { startOfMonth, endOfMonth, eachDayOfInterval, format, endOfToday, startOfTomorrow } from 'date-fns';
-import { User } from "../models/user.model";
 
 class AdminServiceClass {
     constructor() {

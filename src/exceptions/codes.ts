@@ -9,3 +9,4 @@ export const ForbiddenAccessExceptionCode = 109
 export const MissingParameterExceptionCode = 110
 export const ResourceNotFoundExceptionCode = 111
 export const ConflictExceptionCode = 112
+export const TooManyAttemptsExceptionCode = 113

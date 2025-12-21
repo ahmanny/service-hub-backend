@@ -3,6 +3,7 @@ import { Types } from "mongoose"
 
 export interface SendResetPasswordLinkEmailPayload {
     email: string,
-    name: string
+    firstName: string
+    lastName: string
     id: Types.ObjectId
 }

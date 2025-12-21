@@ -8,7 +8,7 @@ export enum UserRoles {
 const roleOrder = Object.values(UserRoles)
 
 
-export interface IUserAddress {
+export interface IConsumerAddress {
     address: string;
     city: string;
     state: string;
@@ -16,13 +16,13 @@ export interface IUserAddress {
     country: string;
 }
 
-export interface IUser {
+export interface IConsumer {
     name: string;
     email: string;
     phone: string;
     password: string;
     profilePicture: string;
-    shippingAddress: IUserAddress;
+    shippingAddress: IConsumerAddress;
     role: UserRoles;
     isVerified: boolean
     cart: Types.ObjectId;
@@ -31,7 +31,7 @@ export interface IUser {
     reviews: Types.ObjectId;
 }
 
-const UserAddress = new Schema<IUserAddress>({
+const UserAddress = new Schema<IConsumerAddress>({
     address: { type: String },
     city: { type: String },
     state: { type: String },
@@ -39,7 +39,7 @@ const UserAddress = new Schema<IUserAddress>({
     country: { type: String },
 });
 
-const UserSchema = new Schema<IUser>({
+const UserSchema = new Schema<IConsumer>({
     name: {
         type: String,
         required: true,
@@ -89,7 +89,7 @@ const UserSchema = new Schema<IUser>({
     timestamps: true,
 });
 
-export const User = model<IUser>('User', UserSchema);
+export const User = model<IConsumer>('User', UserSchema);
 
 
 

@@ -1,6 +1,5 @@
-import { generateOTP, getOtpEmailContent } from "../utils/otp.utils";
+import { getOtpEmailContent } from "../utils/otp.utils";
 import mailjetClient from "../configs/mailjet.config";
-import { getUserByEmail } from "../models/user.model";
 import Exception from "../exceptions/Exception";
 import jwt from 'jsonwebtoken';
 import { SendResetPasswordLinkEmailPayload } from "../types/email.types";
@@ -17,10 +16,9 @@ class EmailServiceClass {
         // super()
     }
     // send otp to user for email confirmation
-    public async sendOtpEmail(user_email: string, user_name: string) {
-        const otpCode = await generateOTP(user_email)
+    public async sendOtpEmail(user_email: string, otp: string) {
 
-        const emailContent = await getOtpEmailContent({ user_name, otpCode })
+        const emailContent = await getOtpEmailContent({ otpCode: otp })
         try {
             await mailjetClient
 
@@ -30,12 +28,11 @@ class EmailServiceClass {
                         {
                             From: {
                                 Email: process.env.EMAIL_FROM,
-                                Name: "ecommerce"
+                                Name: "ServiceHub"
                             },
                             To: [
                                 {
                                     Email: user_email,
-                                    Name: user_name
                                 }
                             ],
                             Subject: "Your OTP Code",
@@ -61,7 +58,8 @@ class EmailServiceClass {
         const content = await getVerificationEmailContent({
             token: resetToken,
             email: payload.email,
-            name: payload.name,
+            firstName: payload.firstName,
+            lastName: payload.lastName,
         })
 
         try {
@@ -73,12 +71,12 @@ class EmailServiceClass {
                         {
                             From: {
                                 Email: process.env.EMAIL_FROM,
-                                Name: "Pulse"
+                                Name: "Service Hub"
                             },
                             To: [
                                 {
                                     Email: payload.email,
-                                    Name: payload.name
+                                    Name: `${payload.firstName} ${payload.lastName}`.trim()
                                 }
                             ],
                             Subject: "Reset Password",
