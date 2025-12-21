@@ -1,4 +1,4 @@
-import { TUser } from "../../types";
+import { ConsumerType } from "../../types/consumer";
 
 
 
@@ -8,7 +8,7 @@ import { TUser } from "../../types";
 declare global {
     namespace Express {
         interface Request {
-            user?: TUser;
+            user?: ConsumerType;
         }
     }
 }
