@@ -28,16 +28,16 @@ class ProviderAuthServiceClass {
             throw new ConflictException('Email already exists');
         }
 
-        // encript password before storing in the db
-        const salt = await bcrypt.genSalt();
-        const hashedPassword = await bcrypt.hash(payload.password, salt);
-        const user = await Consumer.create({ ...payload, password: hashedPassword });
+        // // encript password before storing in the db
+        // const salt = await bcrypt.genSalt();
+        // const hashedPassword = await bcrypt.hash(payload.password, salt);
+        // // const user = await Consumer.create({ ...payload, password: hashedPassword });
 
-        const tokens = await generateTokens(user);
-        return {
-            user: sanitizeUser(user),
-            tokens
-        }
+        // const tokens = await generateTokens(user);
+        // return {
+        //     // user: sanitizeUser(user),
+        //     tokens
+        // }
     }
 
     // login service for Consumer
@@ -86,23 +86,23 @@ class ProviderAuthServiceClass {
 
         let user = await getConsumerByEmail(email).lean()
 
-        // check if the user exists
-        if (!user) {
-            // Create a new user if not exists
-            user = await Consumer.create({
-                firstName,
-                lastName,
-                email,
-                password: null, // OAuth users don't have local password
-                isVerified: true,
-                avatarUrl: picture,
-                provider: "google",
-            });
-        }
-        const tokens = await generateTokens(user);
+        // // check if the user exists
+        // if (!user) {
+        //     // Create a new user if not exists
+        //     user = await Consumer.create({
+        //         firstName,
+        //         lastName,
+        //         email,
+        //         // password: null, // OAuth users don't have local password
+        //         isVerified: true,
+        //         avatarUrl: picture,
+        //         provider: "google",
+        //     });
+        // }
+        // const tokens = await generateTokens(user);
         return {
             user: sanitizeUser(user),
-            tokens
+            // tokens
         }
     }
 
@@ -193,28 +193,6 @@ class ProviderAuthServiceClass {
     }
 
 
-
-
-    public async create_Superadmin() {
-        const admin = {
-            name: "Alice",
-            phone: '00000000001',
-            email: "arab@mailinator.com",
-            password: "1234567890",
-            isVerified: true,
-            location: {
-                type: "Point",
-                coordinates: [3.3792, 6.5244] // lng, lat
-            }
-        }
-        const salt = await bcrypt.genSalt();
-        const hashedPassword = await bcrypt.hash(admin.password, salt);
-        const new_admin = await Consumer.create({ ...admin, password: hashedPassword });
-        console.log('created a admin');
-        console.log(new_admin);
-
-
-    }
 
 
     // public async verifyOtpFunction(payload: OtpverifyPayloadInterface) {

@@ -19,44 +19,44 @@ export const completeProfile = (): RequestHandler => {
     }
 }
 
-export const updateUserController = (): RequestHandler => {
-    return async (req: Request, res: Response): Promise<void> => {
-        try {
-            if (!req.consumer) {
-                throw new UnauthorizedAccessException("Unauthorized");
-            }
+// export const updateUserController = (): RequestHandler => {
+//     return async (req: Request, res: Response): Promise<void> => {
+//         try {
+//             if (!req.consumer) {
+//                 throw new UnauthorizedAccessException("Unauthorized");
+//             }
 
-            // Allowed fields for updating
-            const allowedFields = [
-                "firstname",
-                "lastname",
-                "avatarUrl",
-                "username"
-            ];
+//             // Allowed fields for updating
+//             const allowedFields = [
+//                 "firstname",
+//                 "lastname",
+//                 "avatarUrl",
+//                 "username"
+//             ];
 
-            const updates: Record<string, any> = {};
+//             const updates: Record<string, any> = {};
 
-            // Only copy allowed fields from req.body
-            for (const field of allowedFields) {
-                if (req.body[field] !== undefined) {
-                    updates[field] = req.body[field];
-                }
-            }
+//             // Only copy allowed fields from req.body
+//             for (const field of allowedFields) {
+//                 if (req.body[field] !== undefined) {
+//                     updates[field] = req.body[field];
+//                 }
+//             }
 
-            const updatedUser = await Consumer.findByIdAndUpdate(
-                req.consumer._id,
-                { $set: updates },
-                { new: true }
-            ).select("-password");
+//             const updatedUser = await Consumer.findByIdAndUpdate(
+//                 req.consumer._id,
+//                 { $set: updates },
+//                 { new: true }
+//             ).select("-password");
 
-            if (!updatedUser) {
-                throw new Exception("No changes were made");
-            }
+//             if (!updatedUser) {
+//                 throw new Exception("No changes were made");
+//             }
 
-            ok_handler(res, "User updated successfully");
+//             ok_handler(res, "User updated successfully");
 
-        } catch (error) {
-            error_handler(error, req, res);
-        }
-    };
-};
+//         } catch (error) {
+//             error_handler(error, req, res);
+//         }
+//     };
+// };

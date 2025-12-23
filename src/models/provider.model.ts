@@ -20,7 +20,6 @@ export interface IConsumer {
     name: string;
     email: string;
     phone: string;
-    password: string;
     profilePicture: string;
     shippingAddress: IConsumerAddress;
     role: UserRoles;
@@ -51,10 +50,6 @@ const UserSchema = new Schema<IConsumer>({
         type: String,
         required: true,
         unique: true,
-    },
-    password: {
-        type: String,
-        required: true,
     },
     profilePicture: {
         type: String
