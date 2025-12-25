@@ -1,12 +1,24 @@
 import UnauthorizedAccessException from '../exceptions/UnauthorizedAccessException';
 import MissingParameterException from '../exceptions/MissingParameterException';
-import { updateConsumerById } from '../models/consumer.model';
+import { Consumer, getConsumerById, getConsumerByUserId, updateConsumerById } from '../models/consumer.model';
 import ResourceNotFoundException from '../exceptions/ResourceNotFoundException';
+import { Types } from 'mongoose';
 
 class ConsumerServiceClass {
     constructor() {
         // super()
     }
+
+    // complete profile after sucessfull otp verification
+    public async fetchProfile(userId: string | Types.ObjectId) {
+        const profile = await getConsumerByUserId(userId);
+
+        return {
+            hasProfile: Boolean(profile),
+            profile: profile ?? null
+        };
+    }
+
 
     // complete profile after sucessfull otp verification
     public async completeProfile(payload: { userid: string, email: string, firstName: string, lastName: string }) {
@@ -21,10 +33,9 @@ class ConsumerServiceClass {
         const updatedUser = await updateConsumerById(
             userid,
             {
-                email,
                 firstName,
                 lastName,
-                profileCompleted: true, // mark profile as completed
+                // profileCompleted: true, // mark profile as completed
             },
         ).lean();
 

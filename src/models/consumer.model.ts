@@ -1,17 +1,11 @@
 import mongoose, { Schema, model, Types } from 'mongoose';
 
-export interface IConsumer {
+export interface IConsumerProfile {
+  userId: Types.ObjectId;
   firstName?: string;
   lastName?: string;
-  email?: string;
-  phone: string;
-
   avatarUrl?: string;
 
-  isEmailVerified: boolean;
-  profileCompleted: boolean;
-
-  provider: 'local' | 'google' | 'facebook';
 
   location?: {
     type: 'Point';
@@ -19,35 +13,15 @@ export interface IConsumer {
   };
 }
 
-const ConsumerSchema = new Schema<IConsumer>({
+const ConsumerSchema = new Schema<IConsumerProfile>({
+  userId: {
+    type: Schema.Types.ObjectId,
+    ref: "User",
+    required: true,
+  },
   firstName: { type: String, trim: true },
   lastName: { type: String, trim: true },
-  email: {
-    type: String,
-    trim: true,
-    unique: true,
-    default: undefined,
-    index: {
-      unique: true,
-      partialFilterExpression: { email: { $type: "string" } },
-    },
-  },
-
-  phone: {
-    type: String,
-    required: true,
-    unique: true, // primary identifier
-  },
   avatarUrl: { type: String },
-
-  isEmailVerified: { type: Boolean, default: false },
-  profileCompleted: { type: Boolean, default: false },
-
-  provider: {
-    type: String,
-    enum: ['local', 'google', 'facebook'],
-    default: 'local',
-  },
 
   location: {
     type: {
@@ -75,25 +49,23 @@ ConsumerSchema.virtual('fullName').get(function () {
   return this.firstName + ' ' + this.lastName;
 });
 
-export const Consumer = model<IConsumer>('Consumer', ConsumerSchema);
+export const Consumer = model<IConsumerProfile>('Consumer', ConsumerSchema);
 
 //Methods
 
 export const getConsumers = () => Consumer.find();
 
-export const getConsumerByPhone = (phone: string) =>
-  Consumer.findOne({ phone });
-
-export const getConsumerByEmail = (email: string) =>
-  Consumer.findOne({ email });
 
 export const getConsumerById = (id: string) =>
   Consumer.findById(id);
 
-export const createConsumer = (values: Partial<IConsumer>) =>
+export const getConsumerByUserId = (userId: string | Types.ObjectId) =>
+  Consumer.findOne({ userId });
+
+export const createConsumer = (values: Partial<IConsumerProfile>) =>
   new Consumer(values).save();
 
-export const updateConsumerById = (id: string, values: Partial<IConsumer>) =>
+export const updateConsumerById = (id: string, values: Partial<IConsumerProfile>) =>
   Consumer.findByIdAndUpdate(id, values, { new: true, runValidators: true });
 
 export const deleteConsumerById = (id: string) =>

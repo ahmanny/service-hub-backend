@@ -1,16 +1,18 @@
 import type { Request } from 'express';
 import { RefreshToken } from '../models/refresh-token.model';
 import { JwtService } from '../services/jwt.service';
-import { ConsumerType } from '../types/consumer/user.types';
+import { ConsumerType } from '../types/consumer/profile.types';
 import { getConsumerById } from '../models/consumer.model';
+import { userType } from '../types/user.type';
+import { getUserById } from '../models/user.model';
 
-type TGetConsumerTokenInfoArgs = {
+type TGetUserTokenInfoArgs = {
     req?: Request,
     token?: string,
     token_type?: 'access' | 'refresh',
 }
 
-export const getConsumerTokenInfo = async ({ req, token, token_type }: TGetConsumerTokenInfoArgs) => {
+export const getUserTokenInfo = async ({ req, token, token_type }: TGetUserTokenInfoArgs) => {
     if (!req && !token) {
         return console.error('Provide Request or Token');
     }
@@ -24,12 +26,12 @@ export const getConsumerTokenInfo = async ({ req, token, token_type }: TGetConsu
         }
 
         const is_valid_token = !!JwtService.verify(_token || '', (token_type || 'access'));
-        let user: ConsumerType | null = null;
+        let user: userType | null = null;
 
 
         if (_token && is_valid_token) {
             let { id } = JwtService.decode(_token)?.payload as { id: string };
-            let acct = await getConsumerById(id)
+            let acct = await getUserById(id).lean()
             if (acct) {
                 const { _id, ...rest } = acct
                 user = {

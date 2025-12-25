@@ -1,10 +1,6 @@
 import fs from 'fs/promises'; // Correct fs import
 import Handlebars from 'handlebars';
 import path from 'path';
-import { getConsumerByEmail } from '../models/consumer.model';
-import { deleteUserOtpById, getUserOtpById } from '../models/otp.model';
-import Exception from '../exceptions/Exception';
-import { authenticator } from 'otplib';
 import crypto from "crypto";
 
 interface OtpEmailData {

@@ -1,15 +1,15 @@
-import Exception from "../../exceptions/Exception";
-import { deleteUserOtpById, OtpSession } from "../../models/otp.model";
-import { generateNumericOtp, hashOtp } from "../../utils/otp.utils";
-import { sendOtpSms } from "../../utils/twilio";
-import { BLOCK_DURATION_HOURS, MAX_COOLDOWN_SECONDS, MAX_SEND_PER_HOUR, MAX_VERIFY_ATTEMPTS, OTP_EXPIRY_MINUTES, RESEND_COOLDOWN_BASE } from "../../configs/otpPolicy";
-import TooManyAttemptsException from "../../exceptions/TooManyAttemptsException";
-import { Consumer, getConsumerByPhone } from "../../models/consumer.model";
-import { generateTokens, sanitizeUser } from "../../utils";
+import Exception from "../exceptions/Exception";
+import { OtpSession } from "../models/otp.model";
+import { generateNumericOtp, hashOtp } from "../utils/otp.utils";
+import { sendOtpSms } from "../utils/twilio";
+import { BLOCK_DURATION_HOURS, MAX_COOLDOWN_SECONDS, MAX_SEND_PER_HOUR, MAX_VERIFY_ATTEMPTS, OTP_EXPIRY_MINUTES, RESEND_COOLDOWN_BASE } from "../configs/otpPolicy";
+import TooManyAttemptsException from "../exceptions/TooManyAttemptsException";
+import { generateTokens } from "../utils";
+import { createUser, getUserByPhone } from "../models/user.model";
 
 
 
-class ConsumerAuthServiceClass {
+class AuthServiceClass {
     constructor() {
         // super()
     }
@@ -151,24 +151,22 @@ class ConsumerAuthServiceClass {
         }
 
         // OTP verified find or create consumer
-        let consumer = await getConsumerByPhone(phone);
-        if (!consumer) {
-            consumer = await Consumer.create({
+        let user = await getUserByPhone(phone);
+
+        if (!user) {
+            user = await createUser({
                 phone,
-                email: undefined,
-                provider: "local",
-                profileCompleted: false,
+                isEmailVerified: false
             })
         }
 
-        const tokens = await generateTokens(consumer);
+        const tokens = await generateTokens(user);
         // success ....delete session
         await session.deleteOne();
 
         return {
-            message: "OTP verified successfully",
             tokens,
-            user: sanitizeUser(consumer),
+            user
         };
     }
 
@@ -186,4 +184,4 @@ class ConsumerAuthServiceClass {
 
 
 
-export const ConsumerAuthService = new ConsumerAuthServiceClass();
+export const AuthService = new AuthServiceClass();

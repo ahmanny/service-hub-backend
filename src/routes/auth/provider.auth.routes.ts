@@ -1,22 +1,11 @@
-import { Router } from 'express';
-import * as controller from '../../controllers/auth/provider.auth.controller';
-
-export const providerAuthRoutes = Router();
-// const userMiddleware = new UserMiddleware();
-
-
-providerAuthRoutes.post('/sign-up', controller.signup())
-providerAuthRoutes.post('/login', controller.loginController())
-providerAuthRoutes.post('/google', controller.googleLoginController())
-providerAuthRoutes.post('/logout', controller.logoutController())
-providerAuthRoutes.post('/refresh', controller.refreshToken())
-providerAuthRoutes.post('/forgotten-password', controller.forgottenPasswordController())
-providerAuthRoutes.post('/password-reset', controller.passwordResetController());
+import { Router } from "express";
+import * as controller from '../../controllers/auth.controller';
 
 
 
+export const providerAuthRoutes = Router()
 
-// consumerAuthRoutes.post(
-//     '/password-reset', upload.single('profilePicture'),
-//     controller.completeRegistrationController()
-// );
+providerAuthRoutes.post('/send-otp', controller.sendOtp())
+providerAuthRoutes.post('/verify-otp', controller.verifyOtp())
+providerAuthRoutes.post('/resend-otp', controller.resendOtp())
+providerAuthRoutes.post('/get-otp-cooldown', controller.getOtpCooldown())

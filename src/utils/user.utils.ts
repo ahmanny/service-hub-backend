@@ -1,8 +1,8 @@
 import { HydratedDocument } from "mongoose";
-import { IConsumer } from "../models/consumer.model";
+import { IConsumerProfile } from "../models/consumer.model";
 
 
-export function sanitizeUser(user: HydratedDocument<IConsumer> | any) {
+export function sanitizeUser(user: HydratedDocument<IConsumerProfile> | any) {
     // Convert to plain JS object if it's a Mongoose document
     const plainUser = typeof user.toObject === "function" ? user.toObject() : user;
 
@@ -15,6 +15,6 @@ export function sanitizeUser(user: HydratedDocument<IConsumer> | any) {
     return safeUser;
 }
 
-export function getFullName(user: Pick<IConsumer, "firstName" | "lastName">): string {
+export function getFullName(user: Pick<IConsumerProfile, "firstName" | "lastName">): string {
     return `${user.firstName} ${user.lastName}`.trim();
 }

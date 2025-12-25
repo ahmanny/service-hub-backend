@@ -1,4 +1,5 @@
 import { ConsumerType } from "../../types/consumer";
+import { userType } from "../../types/user.type";
 
 
 
@@ -6,11 +7,12 @@ import { ConsumerType } from "../../types/consumer";
 
 
 declare global {
-    namespace Express {
-        interface Request {
-            consumer?: ConsumerType;
-            cloudinaryUrls?: string[];
-        }
+  namespace Express {
+    interface Request {
+      // consumerProfile?: ConsumerType;
+      currentUser?: userType;
+      cloudinaryUrls?: string[];
     }
+  }
 }
 export { }
