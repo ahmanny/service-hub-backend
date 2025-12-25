@@ -75,7 +75,8 @@ class AuthServiceClass {
 
         // SEND OTP
         const message = `Your ServiceHub OTP is: ${otp}. It expires in ${OTP_EXPIRY_MINUTES} minutes.`;
-        await sendOtpSms(payload.phone, message);
+        console.log(message)
+        // await sendOtpSms(payload.phone, message);
 
         await session.save();
 
@@ -117,7 +118,10 @@ class AuthServiceClass {
 
         await session.save();
 
-        await sendOtpSms(phone, `Your ServiceHub OTP is: ${otp}. It expires in ${OTP_EXPIRY_MINUTES} minutes.`);
+        const message = `Your ServiceHub OTP is: ${otp}. It expires in ${OTP_EXPIRY_MINUTES} minutes.`
+        console.log(message)
+
+        // await sendOtpSms(phone, message);
         const cooldown = Math.min(RESEND_COOLDOWN_BASE * session.sendCount, MAX_COOLDOWN_SECONDS);
 
         return { message: "OTP resent successfully", cooldown };
