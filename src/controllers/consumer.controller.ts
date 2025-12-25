@@ -46,8 +46,7 @@ export const completeProfile = (): RequestHandler => {
                 throw new UnauthorizedAccessException("Unauthorized");
             }
             console.log("Controller:", req.currentUser)
-            const userid = req.currentUser._id
-            const data = await ConsumerService.completeProfile({ userid: req.currentUser._id, ...req.body })
+            const data = await ConsumerService.createProfile({ userId: req.currentUser._id, ...req.body })
             ok_handler(res, "Completed", data)
         } catch (error) {
             error_handler(error, req, res)

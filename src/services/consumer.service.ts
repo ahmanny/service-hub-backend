@@ -3,6 +3,14 @@ import MissingParameterException from '../exceptions/MissingParameterException';
 import { Consumer, getConsumerById, getConsumerByUserId, updateConsumerById } from '../models/consumer.model';
 import ResourceNotFoundException from '../exceptions/ResourceNotFoundException';
 import { Types } from 'mongoose';
+import { User } from '../models/user.model';
+
+interface CreateProfilePayload {
+    userId: string;
+    email?: string;
+    firstName: string;
+    lastName: string;
+}
 
 class ConsumerServiceClass {
     constructor() {
@@ -20,32 +28,42 @@ class ConsumerServiceClass {
     }
 
 
-    // complete profile after sucessfull otp verification
-    public async completeProfile(payload: { userid: string, email: string, firstName: string, lastName: string }) {
-        const { email, firstName, lastName, userid } = payload
-        if (!userid) {
-            throw new UnauthorizedAccessException("Unthorized")
-        }
-        if (!email || !firstName || !lastName) {
-            throw new MissingParameterException("Please provide your details")
-        }
-        // Update the user
-        const updatedUser = await updateConsumerById(
-            userid,
-            {
-                firstName,
-                lastName,
-                // profileCompleted: true, // mark profile as completed
-            },
-        ).lean();
+    public async createProfile(payload: CreateProfilePayload) {
+        const { userId, email, firstName, lastName } = payload;
 
-        if (!updatedUser) {
-            throw new ResourceNotFoundException("User not found")
+        if (!userId || !firstName || !lastName) {
+            throw new MissingParameterException("Please provide your details");
         }
+
+        //  Check if User exists
+        const user = await User.findById(userId);
+        if (!user) {
+            throw new ResourceNotFoundException("User not found");
+        }
+
+        // Update email if provided
+        if (email) {
+            user.email = email;
+            user.isEmailVerified = false
+            await user.save();
+        }
+
+        // Check if consumer profile already exists
+        const existingProfile = await Consumer.findOne({ userId: user._id });
+        if (existingProfile) {
+            throw new ResourceNotFoundException("Profile already exists for this user");
+        }
+
+        // Create the consumer profile
+        const newProfile = await Consumer.create({
+            userId: user._id,
+            firstName,
+            lastName,
+        });
 
         return {
-            user: updatedUser
-        }
+            profile: newProfile,
+        };
     }
 }
 
