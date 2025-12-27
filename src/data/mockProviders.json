@@ -1,0 +1,323 @@
+[
+    {
+        "_id": "prov-001",
+        "userId": "user-001",
+        "firstName": "John",
+        "lastName": "Adewale",
+        "serviceType": "Plumber",
+        "availabilityMode": "instant",
+        "basePriceFrom": 6000,
+        "rating": 4.6,
+        "services": [
+            { "name": "Pipe Fix", "price": 6000 },
+            { "name": "Leak Repair", "price": 8000 }
+        ],
+        "location": { "longitude": 8.88884, "latitude": 9.84936 },
+        "profilePicture": "https://i.pravatar.cc/150?img=1"
+    },
+    {
+        "_id": "prov-002",
+        "userId": "user-002",
+        "firstName": "Samuel",
+        "lastName": "Okorie",
+        "serviceType": "Electrician",
+        "availabilityMode": "instant",
+        "basePriceFrom": 5000,
+        "rating": 4.4,
+        "services": [
+            { "name": "Socket Repair", "price": 5000 },
+            { "name": "Wiring", "price": 9000 }
+        ],
+        "location": { "longitude": 8.88885, "latitude": 9.8495 },
+        "profilePicture": "https://i.pravatar.cc/150?img=2"
+    },
+    {
+        "_id": "prov-003",
+        "userId": "user-003",
+        "firstName": "Aisha",
+        "lastName": "Bello",
+        "serviceType": "House Cleaning",
+        "availabilityMode": "scheduled",
+        "basePriceFrom": 7000,
+        "rating": 4.8,
+        "services": [
+            { "name": "Single Room Cleaning", "price": 7000 },
+            { "name": "Self Contain", "price": 12000 }
+        ],
+        "location": { "longitude": 8.88875, "latitude": 9.8491 },
+        "profilePicture": null
+    },
+    {
+        "_id": "prov-004",
+        "userId": "user-004",
+        "firstName": "Grace",
+        "lastName": "Onyekachi",
+        "serviceType": "Hair Stylist",
+        "availabilityMode": "instant",
+        "basePriceFrom": 8000,
+        "rating": 4.9,
+        "services": [
+            { "name": "Hair Styling", "price": 8000 },
+            { "name": "Braiding", "price": 12000 }
+        ],
+        "location": { "longitude": 8.88895, "latitude": 9.8496 },
+        "profilePicture": "https://i.pravatar.cc/150?img=3"
+    },
+    {
+        "_id": "prov-005",
+        "userId": "user-005",
+        "firstName": "Peter",
+        "lastName": "Okafor",
+        "serviceType": "Barber",
+        "availabilityMode": "instant",
+        "basePriceFrom": 2000,
+        "rating": 4.5,
+        "services": [
+            { "name": "Haircut", "price": 2000 },
+            { "name": "Haircut + Beard", "price": 3000 }
+        ],
+        "location": { "longitude": 8.889, "latitude": 9.8492 },
+        "profilePicture": "https://i.pravatar.cc/150?img=4"
+    },
+
+    {
+        "_id": "prov-006",
+        "userId": "user-006",
+        "firstName": "Ruth",
+        "lastName": "Williams",
+        "serviceType": "Hair Stylist",
+        "availabilityMode": "scheduled",
+        "basePriceFrom": 9000,
+        "rating": 4.9,
+        "services": [
+            { "name": "Makeup", "price": 9000 },
+            { "name": "Bridal Styling", "price": 25000 }
+        ],
+        "location": { "longitude": 8.8888, "latitude": 9.8494 },
+        "profilePicture": null
+    },
+
+    {
+        "_id": "prov-007",
+        "userId": "user-007",
+        "firstName": "David",
+        "lastName": "Lawal",
+        "serviceType": "House Cleaning",
+        "availabilityMode": "instant",
+        "basePriceFrom": 6000,
+        "rating": 4.4,
+        "services": [
+            { "name": "Room Cleaning", "price": 6000 }
+        ],
+        "location": { "longitude": 8.8889, "latitude": 9.849 },
+        "profilePicture": "https://i.pravatar.cc/150?img=5"
+    },
+
+    {
+        "_id": "prov-008",
+        "userId": "user-008",
+        "firstName": "Tunde",
+        "lastName": "Balogun",
+        "serviceType": "Barber",
+        "availabilityMode": "scheduled",
+        "basePriceFrom": 2500,
+        "rating": 4.6,
+        "services": [
+            { "name": "Haircut", "price": 2500 }
+        ],
+        "location": { "longitude": 8.8887, "latitude": 9.8496 },
+        "profilePicture": null
+    },
+
+    {
+        "_id": "prov-009",
+        "userId": "user-009",
+        "firstName": "Ibrahim",
+        "lastName": "Musa",
+        "serviceType": "Plumber",
+        "availabilityMode": "instant",
+        "basePriceFrom": 6500,
+        "rating": 4.3,
+        "services": [
+            { "name": "Bathroom Fix", "price": 6500 }
+        ],
+        "location": { "longitude": 8.88885, "latitude": 9.8492 },
+        "profilePicture": "https://i.pravatar.cc/150?img=6"
+    },
+
+    {
+        "_id": "prov-010",
+        "userId": "user-010",
+        "firstName": "Ngozi",
+        "lastName": "Eze",
+        "serviceType": "Electrician",
+        "availabilityMode": "scheduled",
+        "basePriceFrom": 5500,
+        "rating": 4.7,
+        "services": [
+            { "name": "Light Fix", "price": 5500 }
+        ],
+        "location": { "longitude": 8.8889, "latitude": 9.8495 },
+        "profilePicture": null
+    },
+
+    {
+        "_id": "prov-011",
+        "userId": "user-011",
+        "firstName": "Sadiq",
+        "lastName": "Mohammed",
+        "serviceType": "House Cleaning",
+        "availabilityMode": "instant",
+        "basePriceFrom": 7000,
+        "rating": 4.2,
+        "services": [
+            { "name": "Deep Cleaning", "price": 7000 }
+        ],
+        "location": { "longitude": 8.8905, "latitude": 9.85 },
+        "profilePicture": "https://i.pravatar.cc/150?img=7"
+    },
+
+    {
+        "_id": "prov-012",
+        "userId": "user-012",
+        "firstName": "Blessing",
+        "lastName": "Uche",
+        "serviceType": "Hair Stylist",
+        "availabilityMode": "instant",
+        "basePriceFrom": 8500,
+        "rating": 4.8,
+        "services": [
+            { "name": "Hair Treatment", "price": 8500 }
+        ],
+        "location": { "longitude": 8.891, "latitude": 9.851 },
+        "profilePicture": null
+    },
+
+    {
+        "_id": "prov-013",
+        "userId": "user-013",
+        "firstName": "Kelvin",
+        "lastName": "Mensah",
+        "serviceType": "Barber",
+        "availabilityMode": "instant",
+        "basePriceFrom": 2000,
+        "rating": 4.4,
+        "services": [
+            { "name": "Haircut", "price": 2000 }
+        ],
+        "location": { "longitude": 8.887, "latitude": 9.852 },
+        "profilePicture": "https://i.pravatar.cc/150?img=8"
+    },
+
+    {
+        "_id": "prov-014",
+        "userId": "user-014",
+        "firstName": "Fatima",
+        "lastName": "Sule",
+        "serviceType": "House Cleaning",
+        "availabilityMode": "scheduled",
+        "basePriceFrom": 7500,
+        "rating": 4.6,
+        "services": [
+            { "name": "Apartment Cleaning", "price": 7500 }
+        ],
+        "location": { "longitude": 8.892, "latitude": 9.853 },
+        "profilePicture": "https://i.pravatar.cc/150?img=9"
+    },
+
+    {
+        "_id": "prov-015",
+        "userId": "user-015",
+        "firstName": "Michael",
+        "lastName": "Johnson",
+        "serviceType": "Electrician",
+        "availabilityMode": "instant",
+        "basePriceFrom": 5000,
+        "rating": 4.5,
+        "services": [
+            { "name": "Socket Fix", "price": 5000 }
+        ],
+        "location": { "longitude": 8.889, "latitude": 9.8496 },
+        "profilePicture": null
+    },
+
+    {
+        "_id": "prov-016",
+        "userId": "user-016",
+        "firstName": "Abdul",
+        "lastName": "Rahman",
+        "serviceType": "Plumber",
+        "availabilityMode": "instant",
+        "basePriceFrom": 6500,
+        "rating": 4.7,
+        "services": [
+            { "name": "Tap Repair", "price": 6500 }
+        ],
+        "location": { "longitude": 8.88895, "latitude": 9.8491 },
+        "profilePicture": "https://i.pravatar.cc/150?img=10"
+    },
+
+    {
+        "_id": "prov-017",
+        "userId": "user-017",
+        "firstName": "Zainab",
+        "lastName": "Abdullahi",
+        "serviceType": "Hair Stylist",
+        "availabilityMode": "instant",
+        "basePriceFrom": 9000,
+        "rating": 4.9,
+        "services": [
+            { "name": "Hair Styling", "price": 9000 }
+        ],
+        "location": { "longitude": 8.8888, "latitude": 9.8495 },
+        "profilePicture": null
+    },
+
+    {
+        "_id": "prov-018",
+        "userId": "user-018",
+        "firstName": "Emeka",
+        "lastName": "Nwoye",
+        "serviceType": "Barber",
+        "availabilityMode": "scheduled",
+        "basePriceFrom": 2200,
+        "rating": 4.3,
+        "services": [
+            { "name": "Haircut", "price": 2200 }
+        ],
+        "location": { "longitude": 8.8889, "latitude": 9.8493 },
+        "profilePicture": "https://i.pravatar.cc/150?img=11"
+    },
+
+    {
+        "_id": "prov-019",
+        "userId": "user-019",
+        "firstName": "Hadiza",
+        "lastName": "Ahmed",
+        "serviceType": "House Cleaning",
+        "availabilityMode": "instant",
+        "basePriceFrom": 7000,
+        "rating": 4.8,
+        "services": [
+            { "name": "Room Cleaning", "price": 7000 }
+        ],
+        "location": { "longitude": 8.88895, "latitude": 9.8492 },
+        "profilePicture": null
+    },
+
+    {
+        "_id": "prov-020",
+        "userId": "user-020",
+        "firstName": "Tosin",
+        "lastName": "Adebayo",
+        "serviceType": "Plumber",
+        "availabilityMode": "instant",
+        "basePriceFrom": 6000,
+        "rating": 4.4,
+        "services": [
+            { "name": "Drain Fix", "price": 6000 }
+        ],
+        "location": { "longitude": 8.88885, "latitude": 9.8494 },
+        "profilePicture": "https://i.pravatar.cc/150?img=12"
+    }
+]

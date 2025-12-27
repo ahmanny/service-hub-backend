@@ -2,6 +2,7 @@ import { Router } from 'express';
 import authRoutes from './auth';
 import { consumerRoutes } from './consumer.route';
 import { adminRoutes } from './admin.routes';
+import { providerRoutes } from './provider.routes';
 const routes = Router();
 
 routes.get('/', (_req, res) => {
@@ -11,6 +12,7 @@ routes.get('/', (_req, res) => {
 // group by domain
 routes.use('/auth', authRoutes);
 routes.use('/consumer', consumerRoutes);
+routes.use('/provider', providerRoutes);
 routes.use('/admin', adminRoutes);
 
 export default routes;

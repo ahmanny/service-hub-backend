@@ -4,13 +4,11 @@ import { Consumer, getConsumerById, getConsumerByUserId, updateConsumerById } fr
 import ResourceNotFoundException from '../exceptions/ResourceNotFoundException';
 import { Types } from 'mongoose';
 import { User } from '../models/user.model';
+import { CreateProfilePayload, LocationTuple, SearchPayload } from '../types/consumer';
+import MOCK_PROVIDERS from "../data/mockProviders.json";
+import { getDistance } from 'geolib';
+import { getDirections } from '../utils/routeDirection.utils';
 
-interface CreateProfilePayload {
-    userId: string;
-    email?: string;
-    firstName: string;
-    lastName: string;
-}
 
 class ConsumerServiceClass {
     constructor() {
@@ -65,6 +63,9 @@ class ConsumerServiceClass {
             profile: newProfile,
         };
     }
+
+
+
 }
 
 export const ConsumerService = new ConsumerServiceClass();

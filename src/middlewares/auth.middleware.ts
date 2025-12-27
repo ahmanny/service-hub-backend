@@ -3,7 +3,7 @@ import { getUserTokenInfo } from '../utils';
 import { error_handler } from '../utils/response_handler';
 import AuthenticationTokenException from '../exceptions/AuthenticationTokenException';
 
-export class ConsumerMiddleware {
+export class AuthMiddleware {
     constructor() { }
 
     async validateToken(req: Request, res: Response, next: NextFunction) {

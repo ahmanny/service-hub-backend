@@ -6,3 +6,11 @@ export type ConsumerType = IConsumerProfile & {
     updatedAt?: string;
     __v?: number;
 };
+
+
+export interface CreateProfilePayload {
+    userId: string;
+    email?: string;
+    firstName: string;
+    lastName: string;
+}
