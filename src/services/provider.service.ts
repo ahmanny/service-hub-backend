@@ -38,7 +38,7 @@ class ProviderServiceClass {
             })
             .filter((p) => p.straightDistance <= maxDist)
             .sort((a, b) => a.straightDistance - b.straightDistance)
-            .slice(0, 4);
+            .slice(0, 3);
 
         // Enrich ONLY with time + route distance and direction route
         const results = await Promise.all(
