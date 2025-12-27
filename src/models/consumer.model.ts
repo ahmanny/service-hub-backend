@@ -17,7 +17,9 @@ const ConsumerSchema = new Schema<IConsumerProfile>({
   userId: {
     type: Schema.Types.ObjectId,
     ref: "User",
+    unique: true, // one provider profile per user
     required: true,
+    index: true,
   },
   firstName: { type: String, trim: true },
   lastName: { type: String, trim: true },

@@ -1,130 +1,173 @@
-// import mongoose, { Date, Schema, Types, model } from 'mongoose';
+import mongoose, { Schema, Types, model } from "mongoose";
+
+export interface Services {
+    name: string;
+    price: number;
+}
+
+export interface IProviderShopAddress {
+    address?: string;
+    city?: string;
+    state?: string;
+    zipCode?: string;
+    country?: string;
+}
+
+export interface IProviderProfile {
+    userId: Types.ObjectId;
+
+    firstName?: string;
+    lastName?: string;
+    profilePicture?: string;
+
+    isAvailable: boolean;
+    availabilityMode: "instant" | "scheduled";
+
+    serviceType:
+    | "barber"
+    | "hair_stylist"
+    | "electrician"
+    | "plumber"
+    | "house_cleaning";
+
+    basePriceFrom: number;
+    homeServiceAvailable: boolean;
+    services: Services[];
+
+    rating: number;
+    isVerified: boolean;
+
+    shopAddress?: IProviderShopAddress;
+
+    location?: {
+        type: "Point";
+        coordinates: [number, number]; // [lng, lat]
+    };
+}
+
+const ProviderShopAddressSchema = new Schema<IProviderShopAddress>(
+    {
+        address: String,
+        city: String,
+        state: String,
+        zipCode: String,
+        country: String,
+    },
+    { _id: false }
+);
+
+const ServiceSchema = new Schema<Services>(
+    {
+        name: { type: String, required: true },
+        price: { type: Number, required: true, min: 0 },
+    },
+    { _id: false }
+);
 
 
-// export enum UserRoles {
-//     ADMIN = 'admin',
-//     CUSTOMER = 'customer'
-// }
-// const roleOrder = Object.values(UserRoles)
+const ProviderSchema = new Schema<IProviderProfile>(
+    {
+        userId: {
+            type: Schema.Types.ObjectId,
+            // ref: "User",
+            required: true,
+            unique: true, // one provider profile per user
+            index: true,
+        },
+
+        firstName: { type: String, trim: true },
+        lastName: { type: String, trim: true },
+
+        profilePicture: { type: String },
+
+        isAvailable: {
+            type: Boolean,
+            default: true,
+            index: true,
+        },
+
+        availabilityMode: {
+            type: String,
+            enum: ["instant", "scheduled"],
+            default: "scheduled",
+            required: true,
+        },
+
+        serviceType: {
+            type: String,
+            enum: [
+                "barber",
+                "hair_stylist",
+                "electrician",
+                "plumber",
+                "house_cleaning",
+            ],
+            required: true,
+            index: true,
+        },
+
+        basePriceFrom: {
+            type: Number,
+            required: true,
+            min: 0,
+        },
+
+        services: {
+            type: [ServiceSchema],
+            default: [],
+        },
+
+        rating: {
+            type: Number,
+            default: 0,
+            min: 0,
+            max: 5,
+        },
+
+        isVerified: {
+            type: Boolean,
+            default: false,
+            index: true,
+        },
+        homeServiceAvailable: {
+            type: Boolean,
+            default: false,
+        },
+
+        shopAddress: ProviderShopAddressSchema,
+
+        location: {
+            type: {
+                type: String,
+                enum: ["Point"],
+            },
+            coordinates: {
+                type: [Number],
+                validate: {
+                    validator: (v: number[]) => v.length === 2,
+                    message: "Location must be [longitude, latitude]",
+                },
+            },
+        },
+    },
+    {
+        timestamps: true,
+    }
+);
+
+// Geo queries
+ProviderSchema.index({ location: "2dsphere" });
+
+// Common search patterns
+ProviderSchema.index({ serviceType: 1, isAvailable: 1 });
+ProviderSchema.index({ rating: -1 });
+
+ProviderSchema.virtual("fullName").get(function () {
+    return `${this.firstName ?? ""} ${this.lastName ?? ""}`.trim();
+});
 
 
-// export interface IConsumerAddress {
-//     address: string;
-//     city: string;
-//     state: string;
-//     zipCode: string;
-//     country: string;
-// }
-
-// export interface IConsumer {
-//     name: string;
-//     email: string;
-//     phone: string;
-//     profilePicture: string;
-//     shippingAddress: IConsumerAddress;
-//     role: UserRoles;
-//     isVerified: boolean
-//     cart: Types.ObjectId;
-//     wishlist: Types.ObjectId;
-//     orders: Types.ObjectId;
-//     reviews: Types.ObjectId;
-// }
-
-// const UserAddress = new Schema<IConsumerAddress>({
-//     address: { type: String },
-//     city: { type: String },
-//     state: { type: String },
-//     zipCode: { type: String },
-//     country: { type: String },
-// });
-
-// const UserSchema = new Schema<IConsumer>({
-//     name: {
-//         type: String,
-//         required: true,
-//     },
-//     phone: {
-//         type: String,
-//     },
-//     email: {
-//         type: String,
-//         required: true,
-//         unique: true,
-//     },
-//     profilePicture: {
-//         type: String
-//     },
-//     shippingAddress: UserAddress,
-//     role: {
-//         type: String,
-//         enum: Object.values(UserRoles),
-//         default: UserRoles.CUSTOMER
-//     },
-//     isVerified: {
-//         type: Boolean,
-//         default: false
-//     },
-//     wishlist: [{
-//         type: mongoose.Schema.Types.ObjectId,
-//         ref: 'Wishlist',
-//     }],
-//     cart: [{
-//         type: mongoose.Schema.Types.ObjectId,
-//         ref: 'Cart',
-//     }],
-//     orders: [{
-//         type: mongoose.Schema.Types.ObjectId,
-//         ref: 'Order',
-//     }],
-//     reviews: [{
-//         type: mongoose.Schema.Types.ObjectId,
-//         ref: 'Review',
-//     }],
-// }, {
-//     timestamps: true,
-// });
-
-// export const User = model<IConsumer>('User', UserSchema);
-
-
-
-
-// export const canCreateRole = (creatorRole: UserRoles, targetRole: UserRoles): boolean => {
-//     const roleHierarchy: Record<UserRoles, UserRoles[]> = roleOrder.reduce((hierarchy, role, index) => {
-//         if (index < roleOrder.length - 2) {
-//             hierarchy[role] = roleOrder.slice(index + 1) as UserRoles[];
-//         } else {
-//             hierarchy[role] = [];
-//         }
-//         return hierarchy;
-//     }, {} as Record<UserRoles, UserRoles[]>);
-//     return roleHierarchy[creatorRole]?.includes(targetRole) || false;
-// };
-
-// export const canUserCreateRole = async (userId: string, targetRole: UserRoles): Promise<boolean> => {
-//     const creator = await User.findById(userId);
-//     return creator ? canCreateRole(creator.role, targetRole) : false;
-// };
-
-
-
-
-
-
-
-
-
-
-
-// //methods
-// // export const getUsers = () => User.find();
-// // export const getUserByEmail = (email: String) => User.findOne({ email });
-// // export const getUserByName = (name: String) => User.findOne({ name });
-// // export const getUserByRole = (role: String) => User.findOne({ role })
-// // export const getUserByPhone = (phone: string) => User.findOne({ phone })
-// // export const getUserById = (id: String) => User.findById(id).lean();
-// // export const createUser = (values: Record<string, any>) => new User(values).save().then((user) => user.toObject());
-// // export const deleteUserById = (id: string) => User.findByIdAndDelete({ _id: id });
-// // export const updateUserById = (id: string, values: Record<string, any>) => User.findByIdAndUpdate(id, values)
-
-// // export const updateUserByEmail = (userEmail: string, values: Record<string, any>) => User.findOneAndUpdate({ email: userEmail }, values, { new: true });
+export const Provider = model<IProviderProfile>(
+    "Provider",
+    ProviderSchema
+);

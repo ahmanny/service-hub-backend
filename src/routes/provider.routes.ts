@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import * as SearchController from '../controllers/search.controller';
+import * as SearchController from '../controllers/consumer/search.controller';
 import { AuthMiddleware } from '../middlewares';
 
 export const providerRoutes = Router();

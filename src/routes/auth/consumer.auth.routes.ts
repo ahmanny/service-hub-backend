@@ -1,6 +1,6 @@
 import { Router } from "express";
 import * as controller from '../../controllers/auth.controller';
-import * as consumerController from '../../controllers/consumer.controller';
+import * as consumerController from '../../controllers/consumer/consumer.controller';
 
 
 

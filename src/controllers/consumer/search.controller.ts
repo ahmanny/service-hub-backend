@@ -1,8 +1,6 @@
-import Exception from "../exceptions/Exception";
-import MissingParameterException from "../exceptions/MissingParameterException";
-import UnauthorizedAccessException from "../exceptions/UnauthorizedAccessException";
-import { ProviderService } from "../services/provider.service";
-import { error_handler, ok_handler } from "../utils/response_handler";
+import MissingParameterException from "../../exceptions/MissingParameterException";
+import { ConsumerService } from "../../services/consumer.service";
+import { error_handler, ok_handler } from "../../utils/response_handler";
 import { Request, RequestHandler, Response } from "express";
 
 export const searchNearbyProviders = (): RequestHandler => {
@@ -23,7 +21,7 @@ export const searchNearbyProviders = (): RequestHandler => {
             if (!serviceType || !lat || !lng) {
                 throw new MissingParameterException("Some parameters are missing")
             }
-            const data = await ProviderService.searchNearbyProviders({ serviceType, lat, lng, maxDist })
+            const data = await ConsumerService.searchNearbyProviders({ serviceType, lat, lng, maxDist })
             ok_handler(res, "provider", data)
         } catch (error) {
             error_handler(error, req, res)

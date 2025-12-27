@@ -1,9 +1,10 @@
-import Exception from "../exceptions/Exception";
-import UnauthorizedAccessException from "../exceptions/UnauthorizedAccessException";
-import { Consumer } from "../models/consumer.model";
-import { AuthService } from "../services/auth.service";
-import { ConsumerService } from "../services/consumer.service";
-import { error_handler, ok_handler } from "../utils/response_handler";
+import Exception from "../../exceptions/Exception";
+import MissingParameterException from "../../exceptions/MissingParameterException";
+import UnauthorizedAccessException from "../../exceptions/UnauthorizedAccessException";
+import { Consumer } from "../../models/consumer.model";
+import { AuthService } from "../../services/auth.service";
+import { ConsumerService } from "../../services/consumer.service";
+import { error_handler, ok_handler } from "../../utils/response_handler";
 import { Request, RequestHandler, Response } from "express";
 
 
@@ -20,9 +21,7 @@ export const verifyOtp = (): RequestHandler => {
         }
     }
 }
-
-
-
+// get logged in consumer profile
 export const getProfile = (): RequestHandler => {
     return async (req: Request, res: Response): Promise<void> => {
         try {
@@ -36,9 +35,7 @@ export const getProfile = (): RequestHandler => {
         }
     }
 }
-
-
-
+// complete profile for logged in consumer
 export const completeProfile = (): RequestHandler => {
     return async (req: Request, res: Response): Promise<void> => {
         try {
@@ -53,6 +50,46 @@ export const completeProfile = (): RequestHandler => {
         }
     }
 }
+
+
+// get a provider profile for booking
+export const getProviderProfileForBooking = (): RequestHandler => {
+    return async (req: Request, res: Response): Promise<void> => {
+        try {
+            // if (!req.currentUser) {
+            //     throw new UnauthorizedAccessException("Unauthorized");
+            // }
+            const { providerId } = req.params
+            if (!providerId) {
+                throw new MissingParameterException("provider Id is missing")
+            }
+            const data = await ConsumerService.fetchProviderProfileForBooking(providerId)
+            ok_handler(res, "successfull", data)
+        } catch (error) {
+            error_handler(error, req, res)
+        }
+    }
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 // export const updateUserController = (): RequestHandler => {
 //     return async (req: Request, res: Response): Promise<void> => {
