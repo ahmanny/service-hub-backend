@@ -8,7 +8,7 @@ const Middleware = new AuthMiddleware();
 
 
 
-// consumerRoutes.use(Middleware.validateToken)
+consumerRoutes.use(Middleware.validateToken)
 consumerRoutes.get('/me', controller.getProfile());
 consumerRoutes.patch('/complete-profile', controller.completeProfile());
 
