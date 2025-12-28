@@ -54,12 +54,29 @@ export const getOtpCooldown = (): RequestHandler => {
 export const refreshSession = (): RequestHandler => {
     return async (req: Request, res: Response): Promise<void> => {
         try {
-            const {refresh_token}=req.body
-            if(!refresh_token){
+            const { refresh_token } = req.body
+            if (!refresh_token) {
                 throw new MissingParameterException("Session Refresh Token Needed")
             }
             const data = await AuthService.refreshUserSession(refresh_token)
             ok_handler(res, "Session Refreshed", data)
+        } catch (error) {
+            error_handler(error, req, res)
+        }
+    }
+}
+
+
+// log out 
+export const logout = (): RequestHandler => {
+    return async (req: Request, res: Response): Promise<void> => {
+        try {
+            const { refresh_token } = req.body
+            if (!refresh_token) {
+                throw new MissingParameterException("Session Refresh Token Needed")
+            }
+            await AuthService.logout(refresh_token)
+            ok_handler(res, "Logged out successfully")
         } catch (error) {
             error_handler(error, req, res)
         }

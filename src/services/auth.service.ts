@@ -187,6 +187,7 @@ class AuthServiceClass {
         const diffSeconds = (now.getTime() - session.lastSentAt.getTime()) / 1000;
         return { cooldown: Math.max(0, Math.ceil(cooldownSeconds - diffSeconds)) };
     }
+    // refresh user's session
     public async refreshUserSession(refresh_token: string) {
         const token_info = await getUserTokenInfo({
             token: refresh_token,
@@ -212,6 +213,15 @@ class AuthServiceClass {
             tokens, user
         }
 
+    }
+    // log out
+    public async logout(refresh_token: string) {
+        const tokenInDb = await RefreshToken.findOne({ refresh_token })
+        if (!tokenInDb) {
+            throw new InvalidAccessCredentialsExceptions("You are not logged in any session.")
+        }
+        // delete the token from the db
+        await RefreshToken.deleteOne({ refresh_token })
     }
 }
 
