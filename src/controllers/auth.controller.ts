@@ -1,6 +1,7 @@
 import { Request, RequestHandler, Response } from "express"
 import { error_handler, ok_handler } from "../utils/response_handler"
 import { AuthService } from "../services/auth.service"
+import MissingParameterException from "../exceptions/MissingParameterException"
 
 
 
@@ -43,6 +44,22 @@ export const getOtpCooldown = (): RequestHandler => {
         try {
             const data = await AuthService.getCooldown(req.body)
             ok_handler(res, "otp cooldown", data)
+        } catch (error) {
+            error_handler(error, req, res)
+        }
+    }
+}
+
+// refresh session 
+export const refreshSession = (): RequestHandler => {
+    return async (req: Request, res: Response): Promise<void> => {
+        try {
+            const {refresh_token}=req.body
+            if(!refresh_token){
+                throw new MissingParameterException("Session Refresh Token Needed")
+            }
+            const data = await AuthService.refreshUserSession(refresh_token)
+            ok_handler(res, "Session Refreshed", data)
         } catch (error) {
             error_handler(error, req, res)
         }

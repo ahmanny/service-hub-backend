@@ -9,6 +9,7 @@ export const consumerAuthRoutes = Router()
 consumerAuthRoutes.post('/send-otp', controller.sendOtp())
 consumerAuthRoutes.post('/resend-otp', controller.resendOtp())
 consumerAuthRoutes.post('/get-otp-cooldown', controller.getOtpCooldown())
+consumerAuthRoutes.post('/refresh', controller.refreshSession())
 
 
 consumerAuthRoutes.post('/verify-otp', consumerController.verifyOtp())

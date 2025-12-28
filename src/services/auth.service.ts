@@ -4,8 +4,11 @@ import { generateNumericOtp, hashOtp } from "../utils/otp.utils";
 import { sendOtpSms } from "../utils/twilio";
 import { BLOCK_DURATION_HOURS, MAX_COOLDOWN_SECONDS, MAX_SEND_PER_HOUR, MAX_VERIFY_ATTEMPTS, OTP_EXPIRY_MINUTES, RESEND_COOLDOWN_BASE } from "../configs/otpPolicy";
 import TooManyAttemptsException from "../exceptions/TooManyAttemptsException";
-import { generateTokens } from "../utils";
-import { createUser, getUserByPhone } from "../models/user.model";
+import { generateTokens, getUserTokenInfo } from "../utils";
+import { createUser, getUserById, getUserByPhone } from "../models/user.model";
+import InvalidAccessCredentialsExceptions from "../exceptions/InvalidAccessCredentialsException";
+import { RefreshToken } from "../models/refresh-token.model";
+import ResourceNotFoundException from "../exceptions/ResourceNotFoundException";
 
 
 
@@ -183,6 +186,32 @@ class AuthServiceClass {
         const cooldownSeconds = Math.min(RESEND_COOLDOWN_BASE * session.sendCount, MAX_COOLDOWN_SECONDS);
         const diffSeconds = (now.getTime() - session.lastSentAt.getTime()) / 1000;
         return { cooldown: Math.max(0, Math.ceil(cooldownSeconds - diffSeconds)) };
+    }
+    public async refreshUserSession(refresh_token: string) {
+        const token_info = await getUserTokenInfo({
+            token: refresh_token,
+            token_type: "refresh"
+        });
+
+        if (!token_info || !token_info.user) {
+            throw new InvalidAccessCredentialsExceptions("Session token is invallid")
+        }
+        const tokenInDb = await RefreshToken.findOne({ refresh_token: refresh_token, user_id: token_info.user?._id });
+        if (!tokenInDb) {
+            throw new ResourceNotFoundException("in valid session token try login in again")
+        }
+        const user = await getUserById(token_info.user?._id)
+        if (!user) {
+            throw new ResourceNotFoundException("User not found")
+        }
+        await RefreshToken.deleteOne({ refresh_token })
+
+        const tokens = await generateTokens(user)
+
+        return {
+            tokens, user
+        }
+
     }
 }
 
