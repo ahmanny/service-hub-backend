@@ -100,6 +100,7 @@ class ConsumerServiceClass {
                     return {
                         _id: provider._id,
                         firstName: provider.firstName,
+                        serviceType:provider.serviceType,
                         availabilityMode: provider.availabilityMode,
                         basePriceFrom: provider.basePriceFrom,
                         rating: provider.rating,
