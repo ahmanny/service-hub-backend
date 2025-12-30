@@ -64,8 +64,34 @@ class ConsumerServiceClass {
     }
 
     public async searchNearbyProviders(payload: SearchPayload) {
-        const { serviceType, lat, lng, maxDist } = payload;
-        //  Mongo geo search
+        const {
+            serviceType,
+            service,
+            lat,
+            lng,
+            maxDist = 2000,
+            locationType,
+        } = payload;
+
+        // build geo query 
+        const geoQuery: any = {
+            serviceType,
+        };
+        // Filter by specific service (services.value)
+        if (service) {
+            geoQuery["services.value"] = service;
+        }
+
+        // Home service only
+        if (locationType === "home") {
+            geoQuery.homeServiceAvailable = true;
+        }
+
+        // Optional future-safe filters (keep commented until needed)
+        // geoQuery.isAvailable = true;
+        // geoQuery.isVerified = true;
+
+        //  geo search
         const providers = await Provider.aggregate([
             {
                 $geoNear: {
@@ -76,11 +102,7 @@ class ConsumerServiceClass {
                     distanceField: "straightDistance",
                     // maxDistance: maxDist, // meters
                     spherical: true,
-                    query: {
-                        serviceType,
-                        // isAvailable: true,
-                        // isVerified: true,
-                    },
+                    query: geoQuery,
                 },
             },
             { $sort: { straightDistance: 1 } },
@@ -100,9 +122,9 @@ class ConsumerServiceClass {
                     return {
                         _id: provider._id,
                         firstName: provider.firstName,
-                        serviceType:provider.serviceType,
+                        serviceType: provider.serviceType,
                         availabilityMode: provider.availabilityMode,
-                        basePriceFrom: provider.basePriceFrom,
+                        price: provider.services.price,
                         rating: provider.rating,
                         profilePicture: provider.profilePicture,
 

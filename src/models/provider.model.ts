@@ -2,6 +2,7 @@ import mongoose, { Schema, Types, model } from "mongoose";
 
 export interface Services {
     name: string;
+    value: string;
     price: number;
 }
 
@@ -59,6 +60,7 @@ const ProviderShopAddressSchema = new Schema<IProviderShopAddress>(
 const ServiceSchema = new Schema<Services>(
     {
         name: { type: String, required: true },
+        value: { type: String, required: true },
         price: { type: Number, required: true, min: 0 },
     },
     { _id: false }
@@ -159,7 +161,7 @@ const ProviderSchema = new Schema<IProviderProfile>(
 ProviderSchema.index({ location: "2dsphere" });
 
 // Common search patterns
-ProviderSchema.index({ serviceType: 1, isAvailable: 1 });
+ProviderSchema.index({ serviceType: 1, isAvailable: 1, "services.value": 1, });
 ProviderSchema.index({ rating: -1 });
 
 ProviderSchema.virtual("fullName").get(function () {
