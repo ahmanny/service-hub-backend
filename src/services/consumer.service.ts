@@ -118,13 +118,19 @@ class ConsumerServiceClass {
                     );
 
                     const route = direction?.routes?.[0];
+                    const selectedService = service
+                        ? provider.services?.find(
+                            (s: any) => s.value === service
+                        )
+                        : null;
 
                     return {
                         _id: provider._id,
                         firstName: provider.firstName,
                         serviceType: provider.serviceType,
                         availabilityMode: provider.availabilityMode,
-                        price: provider.services.price,
+                        price: selectedService?.price ?? null,
+                        serviceName: selectedService?.name ?? null,
                         rating: provider.rating,
                         profilePicture: provider.profilePicture,
 
