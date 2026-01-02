@@ -7,7 +7,6 @@ const authMiddleware = new AuthMiddleware();
 
 
 
-providerRoutes.use(authMiddleware.validateToken)
 // providerRoutes.get('/search', controller.getProfile());
 // providerRoutes.get('/me', controller.getProfile());
 // providerRoutes.patch('/complete-profile', controller.completeProfile());

@@ -4,7 +4,7 @@ import { Consumer, getConsumerById, getConsumerByUserId, updateConsumerById } fr
 import ResourceNotFoundException from '../exceptions/ResourceNotFoundException';
 import { Types } from 'mongoose';
 import { User } from '../models/user.model';
-import { CreateProfilePayload, IProviderBookingProfile, LocationTuple, SearchPayload } from '../types/consumer';
+import { CreateProfilePayload, SearchPayload } from '../types/consumer';
 import MOCK_PROVIDERS from "../data/mockProviders.json";
 import { getDistance } from 'geolib';
 import { getDirections } from '../utils/routeDirection.utils';
@@ -184,10 +184,6 @@ class ConsumerServiceClass {
 
         return { provider };
     }
-
-
-
-
 }
 
 export const ConsumerService = new ConsumerServiceClass();

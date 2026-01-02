@@ -8,15 +8,11 @@ const Middleware = new AuthMiddleware();
 
 
 
-consumerRoutes.use(Middleware.validateToken)
-consumerRoutes.get('/me', controller.getProfile());
 consumerRoutes.patch('/complete-profile', controller.completeProfile());
 
-// fetch a providers profile for booking
-consumerRoutes.get('/providers/:providerId', controller.getProviderProfileForBooking());
+// you have to have profile before you can use this routes
+consumerRoutes.use(Middleware.consumerMiddleware)
+consumerRoutes.get('/me', controller.getProfile());
 
-// search providers
 consumerRoutes.get('/search/providers', SearchController.searchNearbyProviders());
-// consumerRoutes.patch('/update', controller.updateUserController());
-// user.post('/validate', controller.validate);
-// user.post('/add-new-user/:id', controller.addNewUser())
+consumerRoutes.get('/providers/:providerId', controller.getProviderProfileForBooking());

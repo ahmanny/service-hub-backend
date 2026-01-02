@@ -1,4 +1,5 @@
 import mongoose, { Schema, model, Types } from 'mongoose';
+import { GeoAddress, GeoPointSchema } from './schemas/geoPoint.schema';
 
 export interface IConsumerProfile {
   userId: Types.ObjectId;
@@ -7,10 +8,7 @@ export interface IConsumerProfile {
   avatarUrl?: string;
 
 
-  location?: {
-    type: 'Point';
-    coordinates: [number, number]; // [longitude, latitude]
-  };
+  location?: GeoAddress
 }
 
 const ConsumerSchema = new Schema<IConsumerProfile>({
@@ -25,19 +23,7 @@ const ConsumerSchema = new Schema<IConsumerProfile>({
   lastName: { type: String, trim: true },
   avatarUrl: { type: String },
 
-  location: {
-    type: {
-      type: String,
-      enum: ['Point'],
-    },
-    coordinates: {
-      type: [Number],
-      validate: {
-        validator: (v: number[]) => v.length === 2,
-        message: 'Location must be [longitude, latitude]',
-      },
-    },
-  },
+  location: GeoPointSchema
 }, {
   timestamps: true,
 });

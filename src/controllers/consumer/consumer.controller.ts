@@ -3,6 +3,7 @@ import MissingParameterException from "../../exceptions/MissingParameterExceptio
 import UnauthorizedAccessException from "../../exceptions/UnauthorizedAccessException";
 import { Consumer } from "../../models/consumer.model";
 import { AuthService } from "../../services/auth.service";
+import { BookingService } from "../../services/booking.service";
 import { ConsumerService } from "../../services/consumer.service";
 import { error_handler, ok_handler } from "../../utils/response_handler";
 import { Request, RequestHandler, Response } from "express";
@@ -56,9 +57,9 @@ export const completeProfile = (): RequestHandler => {
 export const getProviderProfileForBooking = (): RequestHandler => {
     return async (req: Request, res: Response): Promise<void> => {
         try {
-            // if (!req.currentUser) {
-            //     throw new UnauthorizedAccessException("Unauthorized");
-            // }
+            if (!req.currentUser) {
+                throw new UnauthorizedAccessException("Unauthorized");
+            }
             const { providerId } = req.params
             if (!providerId) {
                 throw new MissingParameterException("provider Id is missing")
@@ -70,6 +71,8 @@ export const getProviderProfileForBooking = (): RequestHandler => {
         }
     }
 }
+
+
 
 
 

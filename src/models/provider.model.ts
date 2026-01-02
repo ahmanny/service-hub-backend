@@ -1,4 +1,5 @@
 import mongoose, { Schema, Types, model } from "mongoose";
+import { GeoAddress, GeoPointSchema } from "./schemas/geoPoint.schema";
 
 export interface Services {
     name: string;
@@ -40,10 +41,7 @@ export interface IProviderProfile {
 
     shopAddress?: IProviderShopAddress;
 
-    location?: {
-        type: "Point";
-        coordinates: [number, number]; // [lng, lat]
-    };
+    location?: GeoAddress
 }
 
 const ProviderShopAddressSchema = new Schema<IProviderShopAddress>(
@@ -138,19 +136,7 @@ const ProviderSchema = new Schema<IProviderProfile>(
 
         shopAddress: ProviderShopAddressSchema,
 
-        location: {
-            type: {
-                type: String,
-                enum: ["Point"],
-            },
-            coordinates: {
-                type: [Number],
-                validate: {
-                    validator: (v: number[]) => v.length === 2,
-                    message: "Location must be [longitude, latitude]",
-                },
-            },
-        },
+        location: GeoPointSchema
     },
     {
         timestamps: true,

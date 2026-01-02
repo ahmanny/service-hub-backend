@@ -9,8 +9,8 @@ import { userType } from "../../types/user.type";
 declare global {
   namespace Express {
     interface Request {
-      // consumerProfile?: ConsumerType;
       currentUser?: userType;
+      consumerProfile?: ConsumerType | null;
       cloudinaryUrls?: string[];
     }
   }
