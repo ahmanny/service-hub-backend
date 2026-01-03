@@ -7,4 +7,4 @@ const Middleware = new AuthMiddleware();
 
 
 
-bookingRoutes.post('/create',Middleware.consumerMiddleware,controller.bookProvider())
+bookingRoutes.post('/request', Middleware.consumerMiddleware, controller.bookProvider())
