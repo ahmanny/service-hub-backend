@@ -18,92 +18,60 @@ class BookingServiceClass {
             scheduledAt,
             locationType,
             geoAddress,
-            textAddress, // allowed ONLY for home
+            textAddress,
             note,
         } = payload;
 
-        if (!consumerId || !providerId) {
-            throw new Exception("Invalid consumer or provider");
+        // Basic Validation of required fields
+        if (!consumerId || !providerId) throw new Exception("Invalid consumer or provider");
+        if (!service || !serviceName) throw new MissingParameterException("Service information is required");
+
+        // Ensure the booking isn't in the past
+        const bookingDate = new Date(scheduledAt);
+        if (isNaN(bookingDate.getTime()) || bookingDate < new Date()) {
+            throw new Exception("Scheduled time must be a valid future date");
         }
 
-        if (!service || !serviceName) {
-            throw new MissingParameterException("Service information is required");
-        }
+        // Fetch Provider Details
+        const provider = await Provider.findById(providerId)
+            .select("shopAddress services serviceType")
+            .lean(); // Faster for read-only checks
 
-        if (!scheduledAt) {
-            throw new MissingParameterException("scheduledAt is required");
-        }
+        if (!provider) throw new Exception("Provider not found");
 
-        if (!locationType) {
-            throw new MissingParameterException("locationType is required");
-        }
+        // Location Strategy
+        let location: any = { type: locationType };
 
-        const provider = await Provider.findById(providerId).select("shopAddress,services,serviceType");
-
-        if (!provider) {
-            throw new Exception("Provider not found");
-        }
-
-        let location: {
-            type: "home" | "shop";
-            geoAddress?: any;
-            textAddress?: string | IProviderShopAddress;
-        };
-
-        /* HOME SERVICE */
         if (locationType === "home") {
             if (!geoAddress && !textAddress) {
-                throw new MissingParameterException(
-                    "Either geoAddress or textAddress is required for home service"
-                );
+                throw new MissingParameterException("Address is required for home service");
             }
-
-            // if (geoAddress && textAddress) {
-            //     throw new MissingParameterException(
-            //         "Provide either geoAddress or textAddress, not both"
-            //     );
-            // }
-
-            location = {
-                type: "home",
-                ...(geoAddress && { geoAddress }),
-                ...(textAddress && { textAddress }),
-            };
-        }
-        /* SHOP SERVICE */
-        else {
-
-            if (geoAddress || textAddress) {
-                throw new Exception(
-                    "Shop service does not accept user-provided address"
-                );
-            }
-
+            location.geoAddress = geoAddress;
+            location.textAddress = textAddress;
+        } else {
+            // Shop service
             if (!provider.shopAddress) {
-                throw new Exception("Provider shop address not set");
+                throw new Exception("This provider does not have a physical shop address set");
             }
-
-            location = {
-                type: "shop",
-                textAddress: provider.shopAddress,
-            };
+            // Take a snapshot of the shop address at the time of booking
+            location.textAddress = provider.shopAddress;
         }
 
-        // Get service price
+        // Pricing & Service Validation
         const selectedService = provider.services?.find((s: any) => s.value === service);
-
         if (!selectedService) {
-            throw new Exception("Selected service not offered by provider");
+            throw new Exception("Selected service is no longer offered by this provider");
         }
 
+        // Create Booking
         const booking = await Booking.create({
             consumerId,
             providerId,
             service,
             serviceName,
             serviceType: provider.serviceType,
-            price: selectedService.price,
-            scheduledAt,
+            price: selectedService.price, // Snapshotted price
+            scheduledAt: bookingDate,
             location,
             note,
             status: "pending",
