@@ -10,6 +10,14 @@ export interface IBooking {
 
     service: string;
     serviceName: string;
+    serviceType:
+    | "barber"
+    | "hair_stylist"
+    | "electrician"
+    | "plumber"
+    | "house_cleaning";
+
+    price: number;
 
     scheduledAt: Date;
 
@@ -50,6 +58,25 @@ const BookingSchema = new Schema<IBooking>(
         serviceName: {
             type: String,
             required: true,
+        },
+
+        price: {
+            type: Number,
+            required: true,
+            min: 0,
+        },
+
+        serviceType: {
+            type: String,
+            enum: [
+                "barber",
+                "hair_stylist",
+                "electrician",
+                "plumber",
+                "house_cleaning",
+            ],
+            required: true,
+            index: true,
         },
 
         scheduledAt: {

@@ -20,3 +20,46 @@ export const bookProvider = (): RequestHandler => {
         }
     }
 }
+
+// get bookings for consumer 
+export const getConsumerBookings = (): RequestHandler => {
+    return async (req: Request, res: Response): Promise<void> => {
+        try {
+            if (!req.consumerProfile) {
+                throw new UnauthorizedAccessException("Unauthorized");
+            }
+
+            // 1. Cast query strings to actual numbers
+            const tab = (req.query.tab as string) || "all";
+            const page = parseInt(req.query.page as string) || 1;
+            const limit = parseInt(req.query.limit as string) || 10;
+
+            const data = await BookingService.fetchBookings({
+                consumerId: req.consumerProfile._id,
+                tab: tab as any,
+                page,
+                limit,
+            });
+
+            ok_handler(res, "Bookings retrieved successfully", data);
+        } catch (error) {
+            error_handler(error, req, res);
+        }
+    };
+};
+
+
+// get bookings for Provider
+// export const getProviderBookings = (): RequestHandler => {
+//     return async (req: Request, res: Response): Promise<void> => {
+//         try {
+//             if (!req.providerProfile) {
+//                 throw new UnauthorizedAccessException("Unauthorized");
+//             }
+//             const data = await BookingService.fetchBookings({ providerId: req.providerProfile._id, ...req.query })
+//             ok_handler(res, "Request Sent", data)
+//         } catch (error) {
+//             error_handler(error, req, res)
+//         }
+//     }
+// }

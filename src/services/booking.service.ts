@@ -1,8 +1,8 @@
 import Exception from "../exceptions/Exception";
 import MissingParameterException from "../exceptions/MissingParameterException";
-import { Booking } from "../models/booking.model";
+import { Booking, IBooking } from "../models/booking.model";
 import { IProviderShopAddress, Provider } from "../models/provider.model";
-import { CreateBookingPayload } from "../types/booking.type";
+import { CreateBookingPayload, fetchBookingsPayload } from "../types/booking.type";
 
 class BookingServiceClass {
     constructor() {
@@ -18,8 +18,8 @@ class BookingServiceClass {
             scheduledAt,
             locationType,
             geoAddress,
-            note,
             textAddress, // allowed ONLY for home
+            note,
         } = payload;
 
         if (!consumerId || !providerId) {
@@ -38,7 +38,7 @@ class BookingServiceClass {
             throw new MissingParameterException("locationType is required");
         }
 
-        const provider = await Provider.findById(providerId).select("shopAddress");
+        const provider = await Provider.findById(providerId).select("shopAddress,services,serviceType");
 
         if (!provider) {
             throw new Exception("Provider not found");
@@ -89,11 +89,20 @@ class BookingServiceClass {
             };
         }
 
+        // Get service price
+        const selectedService = provider.services?.find((s: any) => s.value === service);
+
+        if (!selectedService) {
+            throw new Exception("Selected service not offered by provider");
+        }
+
         const booking = await Booking.create({
             consumerId,
             providerId,
             service,
             serviceName,
+            serviceType: provider.serviceType,
+            price: selectedService.price,
             scheduledAt,
             location,
             note,
@@ -106,6 +115,118 @@ class BookingServiceClass {
         };
     }
 
+    // public async fetchBookings(payload: fetchBookingsPayload) {
+    //     const { tab, consumerId, providerId, page = 1, skip = 0, limit = 10 } = payload;
+
+    //     const query: any = {};
+    //     if (consumerId) {
+    //         query.consumerId = consumerId;
+    //     }
+    //     if (providerId) {
+    //         query.providerId = providerId;
+    //     }
+    //     switch (tab) {
+    //         case "upcoming":
+    //             query.scheduledAt = { $gte: new Date() };
+    //             query.status = { $in: ["accepted", "pending"] };
+    //             break;
+    //         case "past":
+    //             query.scheduledAt = { $lt: new Date() };
+    //             query.status = { $in: ["completed", "cancelled", "declined"] };
+    //             break;
+    //         case "pending":
+    //             query.status = "pending";
+    //             break;
+    //         case "all":
+    //         default:
+    //             // no additional filters
+    //             break;
+    //     }
+    //     const bookings = await Booking.find(query)
+    //         .sort({ scheduledAt: -1 })
+    //         .skip(skip + (page - 1) * limit)
+    //         .limit(limit);
+
+    //     const results = await Promise.all(
+    //         bookings.map(async (booking) => {
+    //             return {
+    //                 _id: booking._id,
+    //                 serviceName: booking.serviceName,
+    //                 serviceType: booking.serviceType,
+    //                 price: booking.price,
+    //                 scheduledAt: booking.scheduledAt,
+    //                 locationLabel: booking.location.type === "shop" ? "Come to shop" : "Home Service",
+    //                 status: booking.status,
+    //             };
+    //         })
+    //     );
+    //     return { results };
+    // }
+
+    public async fetchBookings(payload: fetchBookingsPayload) {
+        const { tab, consumerId, providerId, page = 1, limit = 10 } = payload;
+        const skip = (page - 1) * limit;
+
+        //  Build Query with specific MongoDB Filter type
+        // const query: IBooking = {};
+        const query: any = {};
+        if (consumerId) query.consumerId = consumerId;
+        if (providerId) query.providerId = providerId;
+
+        const now = new Date();
+
+        switch (tab) {
+            case "upcoming":
+                // Confirmed bookings that are in the future
+                query.scheduledAt = { $gte: now };
+                query.status = "accepted";
+                break;
+            case "past":
+                // Anything in the past OR specifically marked as finished/cancelled
+                query.$or = [
+                    { scheduledAt: { $lt: now } },
+                    { status: { $in: ["completed", "cancelled", "declined"] } }
+                ];
+                break;
+            case "pending":
+                // Only things waiting for action
+                query.status = "pending";
+                break;
+            default:
+                break;
+        }
+
+        // Execute Count and Find in parallel for performance
+        const [bookings, totalCount] = await Promise.all([
+            Booking.find(query)
+                .sort({ scheduledAt: -1 })
+                .skip(skip)
+                .limit(limit)
+                .lean(), // Returns plain objects, much faster
+            Booking.countDocuments(query),
+        ]);
+
+        // Simple map (No Promise.all needed here since it's synchronous)
+        const results = bookings.map((booking) => ({
+            _id: booking._id,
+            serviceName: booking.serviceName,
+            serviceType: booking.serviceType,
+            price: booking.price,
+            scheduledAt: booking.scheduledAt,
+            locationLabel: booking.location?.type === "shop" ? "Come to shop" : "Home Service",
+            status: booking.status,
+        }));
+
+        return {
+            results,
+            pagination: {
+                totalCount,
+                totalPages: Math.ceil(totalCount / limit),
+                currentPage: page,
+                hasNextPage: page * limit < totalCount,
+            },
+        };
+    }
 
 
 }
