@@ -35,7 +35,7 @@ class BookingServiceClass {
         // Fetch Provider Details
         const provider = await Provider.findById(providerId)
             .select("shopAddress services serviceType")
-            .lean(); // Faster for read-only checks
+            .lean();
 
         if (!provider) throw new Exception("Provider not found");
 
