@@ -51,8 +51,60 @@ export const completeProfile = (): RequestHandler => {
         }
     }
 }
+// Add a new address to the consumer's address book
+export const addAddress = (): RequestHandler => {
+    return async (req: Request, res: Response): Promise<void> => {
+        try {
+            if (!req.consumerProfile) {
+                throw new UnauthorizedAccessException("Unauthorized");
+            }
+            const data = await ConsumerService.addAddress(req.consumerProfile._id.toString(), req.body);
+            ok_handler(res, "Address added successfully", data);
+        } catch (error) {
+            error_handler(error, req, res);
+        }
+    };
+};
+// Delete an address from the consumer's profile
+export const deleteAddress = (): RequestHandler => {
+    return async (req: Request, res: Response): Promise<void> => {
+        try {
+            if (!req.consumerProfile) {
+                throw new UnauthorizedAccessException("Unauthorized");
+            }
 
+            const { addressId } = req.params;
+            if (!addressId) {
+                throw new MissingParameterException("Address ID is missing");
+            }
 
+            const data = await ConsumerService.deleteAddress(req.consumerProfile._id.toString(), addressId);
+            ok_handler(res, "Address deleted successfully", data);
+        } catch (error) {
+            error_handler(error, req, res);
+        }
+    };
+};
+// Set a specific address as the default
+export const setAddressDefault = (): RequestHandler => {
+    return async (req: Request, res: Response): Promise<void> => {
+        try {
+            if (!req.consumerProfile) {
+                throw new UnauthorizedAccessException("Unauthorized");
+            }
+
+            const { addressId } = req.params;
+            if (!addressId) {
+                throw new MissingParameterException("Address ID is missing");
+            }
+
+            const data = await ConsumerService.makeAddressDefault(req.consumerProfile._id.toString(), addressId);
+            ok_handler(res, "Default address updated", data);
+        } catch (error) {
+            error_handler(error, req, res);
+        }
+    };
+};
 // get a provider profile for booking
 export const getProviderProfileForBooking = (): RequestHandler => {
     return async (req: Request, res: Response): Promise<void> => {
@@ -71,67 +123,3 @@ export const getProviderProfileForBooking = (): RequestHandler => {
         }
     }
 }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-// export const updateUserController = (): RequestHandler => {
-//     return async (req: Request, res: Response): Promise<void> => {
-//         try {
-//             if (!req.consumer) {
-//                 throw new UnauthorizedAccessException("Unauthorized");
-//             }
-
-//             // Allowed fields for updating
-//             const allowedFields = [
-//                 "firstname",
-//                 "lastname",
-//                 "avatarUrl",
-//                 "username"
-//             ];
-
-//             const updates: Record<string, any> = {};
-
-//             // Only copy allowed fields from req.body
-//             for (const field of allowedFields) {
-//                 if (req.body[field] !== undefined) {
-//                     updates[field] = req.body[field];
-//                 }
-//             }
-
-//             const updatedUser = await Consumer.findByIdAndUpdate(
-//                 req.consumer._id,
-//                 { $set: updates },
-//                 { new: true }
-//             ).select("-password");
-
-//             if (!updatedUser) {
-//                 throw new Exception("No changes were made");
-//             }
-
-//             ok_handler(res, "User updated successfully");
-
-//         } catch (error) {
-//             error_handler(error, req, res);
-//         }
-//     };
-// };

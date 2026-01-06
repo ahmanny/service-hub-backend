@@ -17,7 +17,12 @@ export interface IBooking {
     | "plumber"
     | "house_cleaning";
 
-    price: number;
+    price: {
+        service: number;
+        homeServiceFee?: number;
+        platformFee?: number;
+        total: number;
+    };
 
     scheduledAt: Date;
 
@@ -61,9 +66,10 @@ const BookingSchema = new Schema<IBooking>(
         },
 
         price: {
-            type: Number,
-            required: true,
-            min: 0,
+            service: { type: Number, required: true, min: 0 },
+            homeServiceFee: { type: Number, default: 0 },
+            platformFee: { type: Number, default: 0 },
+            total: { type: Number, required: true, min: 0 },
         },
 
         serviceType: {

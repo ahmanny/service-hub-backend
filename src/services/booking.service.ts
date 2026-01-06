@@ -1,5 +1,7 @@
 import Exception from "../exceptions/Exception";
+import ForbiddenAccessException from "../exceptions/ForbiddenAccessException";
 import MissingParameterException from "../exceptions/MissingParameterException";
+import ResourceNotFoundException from "../exceptions/ResourceNotFoundException";
 import { Booking, IBooking } from "../models/booking.model";
 import { IProviderShopAddress, Provider } from "../models/provider.model";
 import { CreateBookingPayload, fetchBookingsPayload } from "../types/booking.type";
@@ -83,54 +85,6 @@ class BookingServiceClass {
         };
     }
 
-    // public async fetchBookings(payload: fetchBookingsPayload) {
-    //     const { tab, consumerId, providerId, page = 1, skip = 0, limit = 10 } = payload;
-
-    //     const query: any = {};
-    //     if (consumerId) {
-    //         query.consumerId = consumerId;
-    //     }
-    //     if (providerId) {
-    //         query.providerId = providerId;
-    //     }
-    //     switch (tab) {
-    //         case "upcoming":
-    //             query.scheduledAt = { $gte: new Date() };
-    //             query.status = { $in: ["accepted", "pending"] };
-    //             break;
-    //         case "past":
-    //             query.scheduledAt = { $lt: new Date() };
-    //             query.status = { $in: ["completed", "cancelled", "declined"] };
-    //             break;
-    //         case "pending":
-    //             query.status = "pending";
-    //             break;
-    //         case "all":
-    //         default:
-    //             // no additional filters
-    //             break;
-    //     }
-    //     const bookings = await Booking.find(query)
-    //         .sort({ scheduledAt: -1 })
-    //         .skip(skip + (page - 1) * limit)
-    //         .limit(limit);
-
-    //     const results = await Promise.all(
-    //         bookings.map(async (booking) => {
-    //             return {
-    //                 _id: booking._id,
-    //                 serviceName: booking.serviceName,
-    //                 serviceType: booking.serviceType,
-    //                 price: booking.price,
-    //                 scheduledAt: booking.scheduledAt,
-    //                 locationLabel: booking.location.type === "shop" ? "Come to shop" : "Home Service",
-    //                 status: booking.status,
-    //             };
-    //         })
-    //     );
-    //     return { results };
-    // }
-
     public async fetchBookings(payload: fetchBookingsPayload) {
         const { tab, consumerId, providerId, page = 1, limit = 10 } = payload;
         const skip = (page - 1) * limit;
@@ -194,6 +148,64 @@ class BookingServiceClass {
                 hasNextPage: page * limit < totalCount,
             },
         };
+    }
+
+    public async fetchBookingsDetails(payload: {
+        bookingId: string,
+        currentUserId: string,
+        role: 'consumer' | 'provider'
+    }) {
+
+        const { bookingId, currentUserId, role } = payload;
+        const booking = await Booking.findById(bookingId)
+            .populate("providerId", "firstName rating profilePicture")
+            .populate("consumerId", "firstName profilePicture")
+            .lean();
+
+        if (!booking) throw new ResourceNotFoundException("Booking not found");
+
+        // SECURITY: Extra check to ensure the user actually belongs to this booking
+        const isOwner = role === 'consumer'
+            ? booking.consumerId._id.toString() === currentUserId
+            : booking.providerId._id.toString() === currentUserId;
+
+        if (!isOwner) throw new ForbiddenAccessException("Unauthorized access to this booking");
+
+        const provider: any = booking.providerId;
+
+        const response = {
+            _id: booking._id.toString(),
+            serviceName: booking.serviceName,
+            serviceType: booking.serviceType,
+            status: booking.status,
+            scheduledAt: booking.scheduledAt.toISOString(),
+            createdAt: booking.createdAt?.toISOString(),
+            updatedAt: booking.updatedAt?.toISOString(),
+            __v: booking.__v,
+
+            provider: {
+                _id: provider._id.toString(),
+                firstName: provider.firstName,
+                rating: provider.rating || 0,
+                profilePicture: provider.profilePicture || null,
+            },
+
+            location: {
+                type: booking.location.type,
+                geoAddress: booking.location.geoAddress,
+                textAddress: booking.location.textAddress,
+            },
+
+            price: {
+                service: booking.price, // This is the snapshotted price from createBooking
+                homeServiceFee: booking.location.type === "home" ? (provider.homeServiceFee || 0) : null,
+                // Total calculation: base price + (home fee if applicable)
+                total: booking.location.type === "home"
+                    ? booking.price + (provider.homeServiceFee || 0)
+                    : booking.price,
+            },
+        };
+
     }
 
 

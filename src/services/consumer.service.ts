@@ -1,6 +1,6 @@
 import UnauthorizedAccessException from '../exceptions/UnauthorizedAccessException';
 import MissingParameterException from '../exceptions/MissingParameterException';
-import { Consumer, getConsumerById, getConsumerByUserId, updateConsumerById } from '../models/consumer.model';
+import { addAddressToConsumer, Consumer, getConsumerById, getConsumerByUserId, IConsumerAddress, removeAddressFromConsumer, setDefaultAddress, updateConsumerById } from '../models/consumer.model';
 import ResourceNotFoundException from '../exceptions/ResourceNotFoundException';
 import { Types } from 'mongoose';
 import { User } from '../models/user.model';
@@ -9,6 +9,7 @@ import MOCK_PROVIDERS from "../data/mockProviders.json";
 import { getDistance } from 'geolib';
 import { getDirections } from '../utils/routeDirection.utils';
 import { Provider } from '../models/provider.model';
+import Exception from '../exceptions/Exception';
 
 
 class ConsumerServiceClass {
@@ -18,11 +19,14 @@ class ConsumerServiceClass {
 
     // complete profile after sucessfull otp verification
     public async fetchProfile(userId: string | Types.ObjectId) {
-        const profile = await getConsumerByUserId(userId);
+        // We find the consumer and pull in all fields from the referenced 'User' model
+        const profile = await Consumer.findOne({ userId })
+            .populate("userId") // This brings in the full User document
+            .lean({ virtuals: true }); // Converts to plain JS object + includes virtuals like fullName
 
         return {
             hasProfile: Boolean(profile),
-            profile: profile ?? null
+            profile: profile || null
         };
     }
     public async createProfile(payload: CreateProfilePayload) {
@@ -61,6 +65,75 @@ class ConsumerServiceClass {
         return {
             profile: newProfile,
         };
+    }
+
+
+    /**
+    * Service Methods for Consumer Address Management
+    */
+    public async addAddress(
+        consumerId: string,
+        payload: {
+            label: string;
+            formattedAddress: string;
+            latitude: number;
+            longitude: number;
+        }
+    ) {
+        const { label, formattedAddress, latitude, longitude } = payload;
+
+        // Check existing profile to see if this is the first address
+        const profile = await getConsumerById(consumerId);
+        if (!profile) throw new ResourceNotFoundException("Consumer not found");
+
+        const isFirstAddress = !profile.addresses || profile.addresses.length === 0;
+
+        // Structure the address according to the IConsumerAddress interface
+        const addressData: IConsumerAddress = {
+            label,
+            formattedAddress,
+            location: {
+                type: 'Point',
+                coordinates: [longitude, latitude], // Longitude first for GeoJSON
+            },
+            isDefault: false
+        };
+
+        const updatedConsumer = await addAddressToConsumer(consumerId, addressData);
+
+        if (!updatedConsumer) {
+            throw new Exception("Error Addings Address");
+        }
+
+        return updatedConsumer;
+    }
+
+    // Delete an Address
+    public async deleteAddress(consumerId: string, addressId: string) {
+        const profile = await getConsumerById(consumerId);
+        if (!profile) throw new ResourceNotFoundException("Consumer not found");
+
+        const updatedConsumer = await removeAddressFromConsumer(consumerId, addressId);
+
+        if (!updatedConsumer) {
+            throw new Exception("Address could not be removed");
+        }
+
+        return updatedConsumer;
+    }
+
+    //  Set an Address as Default
+    public async makeAddressDefault(consumerId: string, addressId: string) {
+        const profile = await getConsumerById(consumerId);
+        if (!profile) throw new ResourceNotFoundException("Consumer not found");
+
+        const updatedConsumer = await setDefaultAddress(consumerId, addressId);
+
+        if (!updatedConsumer) {
+            throw new Exception("Address update failed");
+        }
+
+        return updatedConsumer;
     }
 
     public async searchNearbyProviders(payload: SearchPayload) {
