@@ -35,6 +35,8 @@ export interface IBooking {
     note?: string;
 
     status: "pending" | "accepted" | "declined" | "completed" | "cancelled";
+    createdAt?: Date;
+    updatedAt?: Date;
 }
 
 

@@ -24,25 +24,32 @@ class BookingServiceClass {
             note,
         } = payload;
 
-        // Basic Validation of required fields
+        // Basic Validation
         if (!consumerId || !providerId) throw new Exception("Invalid consumer or provider");
         if (!service || !serviceName) throw new MissingParameterException("Service information is required");
 
-        // Ensure the booking isn't in the past
         const bookingDate = new Date(scheduledAt);
         if (isNaN(bookingDate.getTime()) || bookingDate < new Date()) {
             throw new Exception("Scheduled time must be a valid future date");
         }
 
-        // Fetch Provider Details
         const provider = await Provider.findById(providerId)
             .select("shopAddress services serviceType")
             .lean();
 
         if (!provider) throw new Exception("Provider not found");
 
-        // Location Strategy
+        // 1. Pricing & Service Validation
+        const selectedService = provider.services?.find((s: any) => s.value === service);
+        if (!selectedService) {
+            throw new Exception("Selected service is no longer offered by this provider");
+        }
+
+        // 2. Location & Price Snapshot Logic
         let location: any = { type: locationType };
+        const basePrice = selectedService.price;
+        const homeFee = locationType === "home" ? 3000 : 0; // Use 3000 as requested
+        const platformFee = 0; // Set your platform fee logic here if needed
 
         if (locationType === "home") {
             if (!geoAddress && !textAddress) {
@@ -51,28 +58,25 @@ class BookingServiceClass {
             location.geoAddress = geoAddress;
             location.textAddress = textAddress;
         } else {
-            // Shop service
             if (!provider.shopAddress) {
                 throw new Exception("This provider does not have a physical shop address set");
             }
-            // Take a snapshot of the shop address at the time of booking
             location.textAddress = provider.shopAddress;
         }
 
-        // Pricing & Service Validation
-        const selectedService = provider.services?.find((s: any) => s.value === service);
-        if (!selectedService) {
-            throw new Exception("Selected service is no longer offered by this provider");
-        }
-
-        // Create Booking
+        // 3. Create Booking with the full Price Object
         const booking = await Booking.create({
             consumerId,
             providerId,
             service,
             serviceName,
             serviceType: provider.serviceType,
-            price: selectedService.price, // Snapshotted price
+            price: {
+                service: basePrice,
+                homeServiceFee: homeFee,
+                platformFee: platformFee,
+                total: basePrice + homeFee + platformFee
+            },
             scheduledAt: bookingDate,
             location,
             note,
@@ -155,8 +159,9 @@ class BookingServiceClass {
         currentUserId: string,
         role: 'consumer' | 'provider'
     }) {
-
         const { bookingId, currentUserId, role } = payload;
+
+        // Note: ensure you select/populate everything needed
         const booking = await Booking.findById(bookingId)
             .populate("providerId", "firstName rating profilePicture")
             .populate("consumerId", "firstName profilePicture")
@@ -164,16 +169,16 @@ class BookingServiceClass {
 
         if (!booking) throw new ResourceNotFoundException("Booking not found");
 
-        // SECURITY: Extra check to ensure the user actually belongs to this booking
+        // Security Check
         const isOwner = role === 'consumer'
-            ? booking.consumerId._id.toString() === currentUserId
-            : booking.providerId._id.toString() === currentUserId;
+            ? booking.consumerId.toString() === currentUserId
+            : booking.providerId.toString() === currentUserId;
 
         if (!isOwner) throw new ForbiddenAccessException("Unauthorized access to this booking");
 
         const provider: any = booking.providerId;
 
-        const response = {
+        return {
             _id: booking._id.toString(),
             serviceName: booking.serviceName,
             serviceType: booking.serviceType,
@@ -181,7 +186,6 @@ class BookingServiceClass {
             scheduledAt: booking.scheduledAt.toISOString(),
             createdAt: booking.createdAt?.toISOString(),
             updatedAt: booking.updatedAt?.toISOString(),
-            __v: booking.__v,
 
             provider: {
                 _id: provider._id.toString(),
@@ -197,17 +201,13 @@ class BookingServiceClass {
             },
 
             price: {
-                service: booking.price, // This is the snapshotted price from createBooking
-                homeServiceFee: booking.location.type === "home" ? (provider.homeServiceFee || 0) : null,
-                // Total calculation: base price + (home fee if applicable)
-                total: booking.location.type === "home"
-                    ? booking.price + (provider.homeServiceFee || 0)
-                    : booking.price,
+                service: booking.price.service,
+                homeServiceFee: booking.price.homeServiceFee,
+                platformFee: booking.price.platformFee,
+                total: booking.price.total,
             },
         };
-
     }
-
 
 }
 
