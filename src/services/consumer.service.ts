@@ -105,7 +105,7 @@ class ConsumerServiceClass {
             throw new Exception("Error Addings Address");
         }
 
-        return updatedConsumer;
+        return { updatedConsumer };
     }
 
     // Delete an Address
