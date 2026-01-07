@@ -12,14 +12,11 @@ export class AuthMiddleware {
     async validateToken(req: Request, res: Response, next: NextFunction) {
         try {
             const token = await getUserTokenInfo({ req });
-            console.log(token)
             if (!token?.is_valid_token || !token.user || !token.appType) {
                 throw new AuthenticationTokenException("Invalid or Expired authentication token")
             }
-            console.log(token.user);
             req.currentUser = token.user;
             req.appType = token.appType;
-            console.log(req.currentUser);
 
             next(); // Proceed to next
         } catch (error) {
@@ -47,7 +44,6 @@ export class AuthMiddleware {
                         throw new UnauthorizedAccessException("Access denied. You dont have an active profile")
                     }
                     req.consumerProfile = profile;
-                    console.log(req.consumerProfile);
                 }
                 if (requiredRole === 'provider') {
                     const profile = await Provider.findOne({ userId: req.currentUser._id });

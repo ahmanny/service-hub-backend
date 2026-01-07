@@ -45,7 +45,6 @@ export const completeProfile = (): RequestHandler => {
             if (!req.appType && req.appType !== "consumer") {
                 throw new UnauthorizedAccessException("Unauthorized gome");
             }
-            console.log("Controller:", req.currentUser)
             const data = await ConsumerService.createProfile({ userId: req.currentUser._id, ...req.body })
             ok_handler(res, "Completed", data)
         } catch (error) {
