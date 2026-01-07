@@ -6,6 +6,7 @@ import { getConsumerById } from '../models/consumer.model';
 import { userType } from '../types/user.type';
 import { getUserById } from '../models/user.model';
 
+
 export type AppRole = 'consumer' | 'provider';
 
 type TGetUserTokenInfoArgs = {
@@ -29,12 +30,11 @@ export const getUserTokenInfo = async ({ req, token, token_type }: TGetUserToken
 
         const is_valid_token = !!JwtService.verify(_token || '', (token_type || 'access'));
         let user: userType | null = null;
-        let appType: AppRole | null = null;
 
 
         if (_token && is_valid_token) {
-            let { id, appType } = JwtService.decode(_token)?.payload as { id: string, appType: AppRole };
-            console.log(id, appType)
+            console.log("decoded", JwtService.decode(_token)?.payload)
+            let { id } = JwtService.decode(_token)?.payload as { id: string };
             let acct = await getUserById(id).lean()
             if (acct) {
                 const { _id, ...rest } = acct
@@ -42,29 +42,30 @@ export const getUserTokenInfo = async ({ req, token, token_type }: TGetUserToken
                     _id: _id.toString(),
                     ...rest
                 }
-                appType = appType
             }
         }
         return {
             token: _token,
             is_valid_token,
             user,
-            appType,
+            appType: "consumer" as AppRole
         };
     } catch (error) {
         console.log(error);
     }
 };
 
-
 export const generateTokens = async (user: any, appType: AppRole) => {
-    console.log(appType)
-    console.log(user)
+
+    console.log("AppType", appType)
+    console.log("User", user)
     try {
         const payload = {
-            id: user._id,
+            _id: user._id,
             appType: appType,
         };
+
+        console.log("jwt Payload", payload)
 
         const access_token = JwtService.sign(payload, 'access');
         const refresh_token = JwtService.sign(payload, 'refresh');
@@ -75,10 +76,9 @@ export const generateTokens = async (user: any, appType: AppRole) => {
             { upsert: true, new: true }
         );
 
-        return { access_token, refresh_token };
+
+        return Promise.resolve({ access_token, refresh_token });
     } catch (error) {
-        console.error("Generate Tokens Error:", error);
-        throw error;
+        console.log(error);
     }
 };
-
