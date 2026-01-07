@@ -32,6 +32,9 @@ class ConsumerServiceClass {
             })
             .lean({ virtuals: true });
 
+        console.log("Not Sanitized:", profile)
+        console.log("Sanitized:", this.sanitizeProfile(profile))
+
         return {
             hasProfile: Boolean(profile),
             profile: profile ? this.sanitizeProfile(profile) : null
