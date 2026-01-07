@@ -25,8 +25,14 @@ class JwtServiceClass {
     }
 
     sign(payload: any, token_type: 'access' | 'refresh') {
+        const dataToSign = {
+            ...payload,
+            id: payload.id || payload._id?.toString()
+        };
+        delete dataToSign._id;
+
         return jwt.sign(
-            { id: payload._id },
+            { ...dataToSign },
             this.getSecretKey(token_type),
             this.getJwtOptions(token_type) as jwt.SignOptions
         );
