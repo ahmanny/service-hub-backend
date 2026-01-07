@@ -464,7 +464,7 @@ class ConsumerServiceClass {
         return {
             ...profileData,
             // Clean up the User Identity object
-            user: {
+            userId: {
                 _id: userId?._id,
                 phone: userId?.consumerPhone,
                 email: userId?.consumerEmail,
