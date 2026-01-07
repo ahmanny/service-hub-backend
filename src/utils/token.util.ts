@@ -34,6 +34,7 @@ export const getUserTokenInfo = async ({ req, token, token_type }: TGetUserToken
 
         if (_token && is_valid_token) {
             let { id, appType } = JwtService.decode(_token)?.payload as { id: string, appType: AppRole };
+            console.log(id, appType)
             let acct = await getUserById(id).lean()
             if (acct) {
                 const { _id, ...rest } = acct
