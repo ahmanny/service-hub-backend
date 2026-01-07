@@ -34,25 +34,25 @@ class ConsumerServiceClass {
 
         return {
             hasProfile: Boolean(profile),
-            profile: profile || null
+            profile: profile ? this.sanitizeProfile(profile) : null
         };
     }
 
     public async createProfile(payload: CreateProfilePayload) {
         const { userId, email, firstName, lastName } = payload;
 
-        // 1. Validation
+        // Validation
         if (!userId || !firstName || !lastName) {
             throw new MissingParameterException("Please provide your details");
         }
 
-        // 2. Check if User Identity exists
+        // Check if User Identity exists
         const user = await User.findById(userId);
         if (!user) {
             throw new ResourceNotFoundException("User identity not found");
         }
 
-        // 3. Update Consumer-specific email if provided
+        // Update Consumer-specific email if provided
         if (email) {
             // Ensure this email isn't already taken as a consumerEmail by another user
             const emailExists = await User.findOne({
@@ -63,26 +63,26 @@ class ConsumerServiceClass {
             if (emailExists) {
                 throw new Exception("This email is already associated with another consumer account");
             }
-
+            console.log(email)
             user.consumerEmail = email;
             user.isConsumerEmailVerified = false;
         }
 
-        // 4. Update Active Roles tracking
+        // Update Active Roles tracking
         if (!user.activeRoles.includes('consumer')) {
             user.activeRoles.push('consumer');
         }
 
         await user.save();
 
-        // 5. Check if consumer persona profile already exists
+        // Check if consumer persona profile already exists
         const existingProfile = await Consumer.findOne({ userId: user._id });
         if (existingProfile) {
             // It's safer to return a specific error here so the frontend knows to redirect to Home
             throw new Exception("Consumer profile already exists for this user");
         }
 
-        // 6. Create the persona-specific consumer profile
+        // Create the persona-specific consumer profile
         const newProfile = await Consumer.create({
             userId: user._id,
             firstName,
@@ -115,13 +115,12 @@ class ConsumerServiceClass {
 
         const isFirstAddress = !profile.addresses || profile.addresses.length === 0;
 
-        // Structure the address according to the IConsumerAddress interface
         const addressData: IConsumerAddress = {
             label,
             formattedAddress,
             location: {
                 type: 'Point',
-                coordinates: [longitude, latitude], // Longitude first for GeoJSON
+                coordinates: [longitude, latitude],
             },
             isDefault: isFirstAddress
         };
@@ -447,6 +446,30 @@ class ConsumerServiceClass {
         }
 
         return { provider };
+    }
+
+
+    /**
+     * PRIVATE UTILS
+     */
+    private sanitizeProfile(profile: any) {
+        if (!profile) return null;
+
+        // Extract the populated User document
+        const { userId, ...profileData } = profile;
+
+        return {
+            ...profileData,
+            // Clean up the User Identity object
+            user: {
+                _id: userId?._id,
+                phone: userId?.consumerPhone,
+                email: userId?.consumerEmail,
+                isEmailVerified: userId?.isConsumerEmailVerified,
+                activeRoles: userId?.activeRoles,
+                createdAt: userId?.createdAt
+            }
+        };
     }
 }
 
