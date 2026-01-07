@@ -15,30 +15,35 @@ type TGetUserTokenInfoArgs = {
 }
 
 export const getUserTokenInfo = async ({ req, token, token_type }: TGetUserTokenInfoArgs) => {
-    if (!req && !token) return { token: null, is_valid_token: false, user: null, appType: null };
+    if (!req && !token) {
+        return { token: null, is_valid_token: false, user: null, appType: null };
+    }
 
     try {
         const _token = token ?? req?.headers.authorization?.split(' ')[1];
 
-        if (!_token) return { token: null, is_valid_token: false, user: null, appType: null };
-
-        const decoded = JwtService.verify(_token, (token_type || 'access'));
-        const is_valid_token = !!decoded;
-
-        let user: any = null;
-        let appType: AppRole | null = null;
-
-        if (is_valid_token && decoded) {
-            // The payload now contains appType
-            const payload = decoded as { id: string, appType: AppRole };
-            appType = payload.appType;
-
-            const acct = await getUserById(payload.id).lean();
-            if (acct) {
-                user = { ...acct, _id: acct._id.toString() };
-            }
+        if (!_token) {
+            console.error('Token not found in request or arguments');
+            return { token: null, is_valid_token: false, user: null, appType: null };
         }
 
+        const is_valid_token = !!JwtService.verify(_token || '', (token_type || 'access'));
+        let user: userType | null = null;
+        let appType: AppRole | null = null;
+
+
+        if (_token && is_valid_token) {
+            let { id, appType } = JwtService.decode(_token)?.payload as { id: string, appType: AppRole };
+            let acct = await getUserById(id).lean()
+            if (acct) {
+                const { _id, ...rest } = acct
+                user = {
+                    _id: _id.toString(),
+                    ...rest
+                }
+                appType = appType
+            }
+        }
         return {
             token: _token,
             is_valid_token,
@@ -46,10 +51,10 @@ export const getUserTokenInfo = async ({ req, token, token_type }: TGetUserToken
             appType,
         };
     } catch (error) {
-        console.error("Token Info Error:", error);
-        return { token: null, is_valid_token: false, user: null, appType: null };
+        console.log(error);
     }
 };
+
 
 export const generateTokens = async (user: any, appType: AppRole) => {
     console.log(appType)
@@ -75,3 +80,4 @@ export const generateTokens = async (user: any, appType: AppRole) => {
         throw error;
     }
 };
+
