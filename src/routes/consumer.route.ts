@@ -7,7 +7,7 @@ export const consumerRoutes = Router();
 const authMiddleware = new AuthMiddleware();
 
 // Initial profile setup 
-consumerRoutes.patch('/complete-profile',controller.completeProfile());
+consumerRoutes.patch('/complete-profile', controller.completeProfile());
 
 // Middleware: ensure user is logged in AND has a consumer profile context
 consumerRoutes.use(authMiddleware.authorizeRole("consumer"));
@@ -25,6 +25,7 @@ consumerRoutes.patch('/change-phone', controller.changeNumber()); // Verifies OT
  * Address Management
  */
 consumerRoutes.post('/address', controller.addAddress());
+consumerRoutes.patch('/address/:addressId', controller.updateAddress());
 consumerRoutes.patch('/address/:addressId/default', controller.setAddressDefault());
 consumerRoutes.delete('/address/:addressId', controller.deleteAddress());
 

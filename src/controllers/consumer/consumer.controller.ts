@@ -66,6 +66,31 @@ export const addAddress = (): RequestHandler => {
         }
     };
 };
+// update addree 
+export const updateAddress = (): RequestHandler => {
+    return async (req: Request, res: Response): Promise<void> => {
+        try {
+            if (!req.consumerProfile) {
+                throw new UnauthorizedAccessException("Unauthorized");
+            }
+
+            const { addressId } = req.params;
+            if (!addressId) {
+                throw new MissingParameterException("Address ID is missing");
+            }
+
+            const data = await ConsumerService.updateAddress(
+                req.consumerProfile._id.toString(),
+                addressId,
+                req.body
+            );
+
+            ok_handler(res, "Address updated successfully", data);
+        } catch (error) {
+            error_handler(error, req, res);
+        }
+    };
+};
 // Delete an address from the consumer's profile
 export const deleteAddress = (): RequestHandler => {
     return async (req: Request, res: Response): Promise<void> => {

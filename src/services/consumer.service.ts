@@ -133,6 +133,44 @@ class ConsumerServiceClass {
 
         return { updatedConsumer };
     }
+
+    // update address 
+    public async updateAddress(
+        consumerId: string,
+        addressId: string,
+        payload: Partial<{
+            label: string;
+            formattedAddress: string;
+            latitude: number;
+            longitude: number;
+        }>
+    ) {
+        const { label, formattedAddress, latitude, longitude } = payload;
+
+        // Build the update object dynamically for the specific array element
+        const updateFields: any = {};
+        if (label) updateFields["addresses.$.label"] = label;
+        if (formattedAddress) updateFields["addresses.$.formattedAddress"] = formattedAddress;
+        if (latitude !== undefined && longitude !== undefined) {
+            updateFields["addresses.$.location"] = {
+                type: "Point",
+                coordinates: [longitude, latitude], // Remember: [lng, lat]
+            };
+        }
+
+        const updatedConsumer = await Consumer.findOneAndUpdate(
+            { _id: consumerId, "addresses._id": addressId },
+            { $set: updateFields },
+            { new: true, runValidators: true }
+        ).lean();
+
+        if (!updatedConsumer) {
+            throw new ResourceNotFoundException("Address or Consumer not found");
+        }
+
+        // Reuse your existing fetchProfile logic to return sanitized data
+        return await this.fetchProfile(updatedConsumer.userId);
+    }
     // Delete an Address
     public async deleteAddress(consumerId: string, addressId: string) {
         const profile = await getConsumerById(consumerId);
