@@ -43,7 +43,7 @@ export const completeProfile = (): RequestHandler => {
                 throw new UnauthorizedAccessException("Unauthorized");
             }
             if (!req.appType && req.appType !== "consumer") {
-                throw new UnauthorizedAccessException("Unauthorized");
+                throw new UnauthorizedAccessException("Unauthorized gome");
             }
             console.log("Controller:", req.currentUser)
             const data = await ConsumerService.createProfile({ userId: req.currentUser._id, ...req.body })
