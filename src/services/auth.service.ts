@@ -5,7 +5,7 @@ import { sendOtpSms } from "../utils/twilio";
 import { BLOCK_DURATION_HOURS, MAX_COOLDOWN_SECONDS, MAX_SEND_PER_HOUR, MAX_VERIFY_ATTEMPTS, OTP_EXPIRY_MINUTES, RESEND_COOLDOWN_BASE } from "../configs/otpPolicy";
 import TooManyAttemptsException from "../exceptions/TooManyAttemptsException";
 import { AppRole, generateTokens, getUserTokenInfo } from "../utils";
-import {  getUserById, User } from "../models/user.model";
+import { getUserById, User } from "../models/user.model";
 import InvalidAccessCredentialsExceptions from "../exceptions/InvalidAccessCredentialsException";
 import { RefreshToken } from "../models/refresh-token.model";
 import ResourceNotFoundException from "../exceptions/ResourceNotFoundException";
@@ -219,10 +219,14 @@ class AuthServiceClass {
     }
     // refresh user's session
     public async refreshUserSession(refresh_token: string) {
-        const { user, appType } = await getUserTokenInfo({
+        const token = await getUserTokenInfo({
             token: refresh_token,
             token_type: "refresh"
         });
+        if (!token) {
+            throw new InvalidAccessCredentialsExceptions("Session token is invallid")
+        }
+        const { appType, user } = token
 
         if (!user || !appType) {
             throw new InvalidAccessCredentialsExceptions("Session token is invallid")
