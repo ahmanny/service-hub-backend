@@ -32,7 +32,7 @@ export const getUserTokenInfo = async ({ req, token, token_type }: TGetUserToken
             // The payload now contains appType
             const payload = decoded as { id: string, appType: AppRole };
             appType = payload.appType;
-            
+
             const acct = await getUserById(payload.id).lean();
             if (acct) {
                 user = { ...acct, _id: acct._id.toString() };
@@ -43,7 +43,7 @@ export const getUserTokenInfo = async ({ req, token, token_type }: TGetUserToken
             token: _token,
             is_valid_token,
             user,
-            appType, // Now you know which app this token belongs to
+            appType,
         };
     } catch (error) {
         console.error("Token Info Error:", error);
@@ -52,19 +52,19 @@ export const getUserTokenInfo = async ({ req, token, token_type }: TGetUserToken
 };
 
 export const generateTokens = async (user: any, appType: AppRole) => {
+    console.log(appType)
+    console.log(user)
     try {
         const payload = {
             id: user._id,
-            appType: appType, // Crucial: Embed the role in the token
+            appType: appType,
         };
 
         const access_token = JwtService.sign(payload, 'access');
         const refresh_token = JwtService.sign(payload, 'refresh');
 
-        // Update RefreshToken logic to be unique per user AND per app
-        // This allows simultaneous login on Consumer and Provider apps
         await RefreshToken.findOneAndUpdate(
-            { user_id: user._id, appType: appType }, 
+            { user_id: user._id, appType: appType },
             { refresh_token },
             { upsert: true, new: true }
         );
