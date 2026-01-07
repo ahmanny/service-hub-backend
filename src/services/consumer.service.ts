@@ -10,6 +10,11 @@ import { getDistance } from 'geolib';
 import { getDirections } from '../utils/routeDirection.utils';
 import { Provider } from '../models/provider.model';
 import Exception from '../exceptions/Exception';
+import { OtpSession } from '../models/otp.model';
+import TooManyAttemptsException from '../exceptions/TooManyAttemptsException';
+import { BLOCK_DURATION_HOURS, MAX_VERIFY_ATTEMPTS } from '../configs/otpPolicy';
+import { hashOtp } from '../utils/otp.utils';
+import { JwtService } from './jwt.service';
 
 
 class ConsumerServiceClass {
@@ -19,52 +24,74 @@ class ConsumerServiceClass {
 
     // complete profile after sucessfull otp verification
     public async fetchProfile(userId: string | Types.ObjectId) {
-        // We find the consumer and pull in all fields from the referenced 'User' model
         const profile = await Consumer.findOne({ userId })
-            .populate("userId") // This brings in the full User document
-            .lean({ virtuals: true }); // Converts to plain JS object + includes virtuals like fullName
+            .populate({
+                path: "userId",
+                // Select only consumer-related fields and common fields
+                select: "consumerEmail consumerPhone isConsumerEmailVerified activeRoles createdAt",
+            })
+            .lean({ virtuals: true });
 
         return {
             hasProfile: Boolean(profile),
             profile: profile || null
         };
     }
+
     public async createProfile(payload: CreateProfilePayload) {
         const { userId, email, firstName, lastName } = payload;
 
+        // 1. Validation
         if (!userId || !firstName || !lastName) {
             throw new MissingParameterException("Please provide your details");
         }
 
-        //  Check if User exists
+        // 2. Check if User Identity exists
         const user = await User.findById(userId);
         if (!user) {
-            throw new ResourceNotFoundException("User not found");
+            throw new ResourceNotFoundException("User identity not found");
         }
 
-        // Update email if provided
+        // 3. Update Consumer-specific email if provided
         if (email) {
-            user.email = email;
-            user.isEmailVerified = false
-            await user.save();
+            // Ensure this email isn't already taken as a consumerEmail by another user
+            const emailExists = await User.findOne({
+                consumerEmail: email,
+                _id: { $ne: user._id }
+            });
+
+            if (emailExists) {
+                throw new Exception("This email is already associated with another consumer account");
+            }
+
+            user.consumerEmail = email;
+            user.isConsumerEmailVerified = false;
         }
 
-        // Check if consumer profile already exists
+        // 4. Update Active Roles tracking
+        if (!user.activeRoles.includes('consumer')) {
+            user.activeRoles.push('consumer');
+        }
+
+        await user.save();
+
+        // 5. Check if consumer persona profile already exists
         const existingProfile = await Consumer.findOne({ userId: user._id });
         if (existingProfile) {
-            throw new ResourceNotFoundException("Profile already exists for this user");
+            // It's safer to return a specific error here so the frontend knows to redirect to Home
+            throw new Exception("Consumer profile already exists for this user");
         }
 
-        // Create the consumer profile
+        // 6. Create the persona-specific consumer profile
         const newProfile = await Consumer.create({
             userId: user._id,
             firstName,
             lastName,
         });
 
-        return {
-            profile: newProfile,
-        };
+        //  Return populated data
+        const profile = await this.fetchProfile(user._id)
+        return { profile }
     }
 
 
@@ -96,7 +123,7 @@ class ConsumerServiceClass {
                 type: 'Point',
                 coordinates: [longitude, latitude], // Longitude first for GeoJSON
             },
-            isDefault: false
+            isDefault: isFirstAddress
         };
 
         const updatedConsumer = await addAddressToConsumer(consumerId, addressData);
@@ -107,7 +134,6 @@ class ConsumerServiceClass {
 
         return { updatedConsumer };
     }
-
     // Delete an Address
     public async deleteAddress(consumerId: string, addressId: string) {
         const profile = await getConsumerById(consumerId);
@@ -121,7 +147,6 @@ class ConsumerServiceClass {
 
         return updatedConsumer;
     }
-
     //  Set an Address as Default
     public async makeAddressDefault(consumerId: string, addressId: string) {
         const profile = await getConsumerById(consumerId);
@@ -134,6 +159,172 @@ class ConsumerServiceClass {
         }
 
         return updatedConsumer;
+    }
+
+    /**
+     * Service Methods for Consumer account personal info management
+    */
+    // verify OTP and update consumer phone (no token generation)
+    public async changeNumber(consumerId: string, payload: { phone: string, otp: string }) {
+        const { phone, otp } = payload;
+
+        if (!phone || !otp) throw new Exception("Phone and OTP are required");
+
+        // 1. Resolve Identity
+        const profile = await Consumer.findById(consumerId);
+        if (!profile) throw new ResourceNotFoundException("Consumer not found");
+
+        const currentUser = await User.findById(profile.userId);
+        if (!currentUser) throw new ResourceNotFoundException("User account not found");
+
+        // 2. OTP Validation Logic
+        const now = new Date();
+        const session = await OtpSession.findOne({ phone });
+        if (!session) throw new Exception("No OTP session found, please request a code");
+
+        if (session.blockedUntil && session.blockedUntil > now) {
+            throw new TooManyAttemptsException("Too many attempts. Try again later.");
+        }
+        if (session.expiresAt < now) throw new Exception("OTP expired.");
+
+        if (session.verifyAttempts >= MAX_VERIFY_ATTEMPTS) {
+            session.blockedUntil = new Date(now.getTime() + BLOCK_DURATION_HOURS * 60 * 60 * 1000);
+            await session.save();
+            throw new TooManyAttemptsException("Too many failed attempts.");
+        }
+
+        if (hashOtp(otp) !== session.otpHash) {
+            session.verifyAttempts += 1;
+            await session.save();
+            throw new Exception("Invalid OTP.");
+        }
+
+        // 3. Collision Check: Ensure number isn't taken by another consumer
+        const collision = await User.findOne({
+            consumerPhone: phone,
+            _id: { $ne: currentUser._id }
+        });
+
+        if (collision) {
+            throw new Exception("This phone number is already used by another consumer account.");
+        }
+
+        // 4. Update and Cleanup
+        currentUser.consumerPhone = phone;
+        await currentUser.save();
+        await session.deleteOne();
+
+        // 5. Return fresh profile data for frontend sync
+        const updatedData = await this.fetchProfile(currentUser._id);
+
+        return updatedData; // Just return { hasProfile, profile }
+    }
+    /**
+     * Updates the names on the Consumer profile.
+     */
+    public async updateName(consumerId: string, payload: { firstName?: string; lastName?: string }) {
+        const { firstName, lastName } = payload;
+        if (!firstName && !lastName) {
+            throw new MissingParameterException("Please provide at least one name to update");
+        }
+
+        const updatedProfile = await Consumer.findByIdAndUpdate(
+            consumerId,
+            {
+                ...(firstName && { firstName }),
+                ...(lastName && { lastName })
+            },
+            { new: true, runValidators: true }
+        ).populate("userId", "consumerPhone consumerEmail");
+
+        if (!updatedProfile) {
+            throw new ResourceNotFoundException("Consumer profile not found");
+        }
+
+        return { message: "updated" };
+    }
+
+    /**
+     * Then initiates the sending of the verification link.
+     */
+    public async changeEmail(consumerId: string, payload: { email: string }) {
+        const { email } = payload;
+
+        if (!email) throw new Exception("New email is required");
+
+        //Resolve Identity
+        const profile = await Consumer.findById(consumerId);
+        if (!profile) throw new ResourceNotFoundException("Consumer not found");
+
+        const currentUser = await User.findById(profile.userId);
+        if (!currentUser) throw new ResourceNotFoundException("User account not found");
+
+        // Collision Check
+        const collision = await User.findOne({
+            consumerEmail: email,
+            _id: { $ne: currentUser._id }
+        });
+
+        if (collision) {
+            throw new Exception("This email is already associated with another consumer account.");
+        }
+
+        //  THE UPDATE: Store the new email but mark as unverified
+        currentUser.consumerEmail = email;
+        currentUser.isConsumerEmailVerified = false;
+        await currentUser.save();
+
+        //  Generate Verification Token for the link
+        // The token now only needs the ID since the email is already in the DB
+        const verificationToken = JwtService.sign({ id: currentUser._id }, 'access');
+
+        //  Send Verification Email (Placeholder)
+        const verificationUrl = `${process.env.FRONTEND_URL}/verify-email?token=${verificationToken}`;
+
+        /* TODO: Implement Mailer Service
+           await EmailService.sendVerificationLink(email, verificationUrl);
+        */
+
+        return {
+            message: "Email updated and verification link sent.",
+            user: currentUser
+        };
+    }
+    /**
+     * Verifies the token from the email link and updates the database.
+     */
+    public async verifyEmailUpdate(token: string) {
+        if (!token) throw new Exception("Verification token is required");
+
+        //  Decode the token (Using your JwtService)
+        // The token should contain { userId, newEmail }
+        const decoded = JwtService.verify(token, 'access') as { id: string, newEmail: string };
+
+        if (!decoded || !decoded.newEmail) {
+            throw new Exception("Invalid or expired verification link.");
+        }
+
+        // Resolve the User
+        const user = await User.findById(decoded.id);
+        if (!user) throw new ResourceNotFoundException("User not found");
+
+        // Final Collision Check (Just in case someone took the email while user was away)
+        const collision = await User.findOne({
+            consumerEmail: decoded.newEmail,
+            _id: { $ne: user._id }
+        });
+
+        if (collision) {
+            throw new Exception("This email is now taken by another account.");
+        }
+
+        // THE UPDATE: Commit the new email and set verified to true
+        user.consumerEmail = decoded.newEmail;
+        user.isConsumerEmailVerified = true;
+        await user.save();
+
+        // Fetch and return the updated profile for the frontend
+        return await this.fetchProfile(user._id);
     }
 
     public async searchNearbyProviders(payload: SearchPayload) {

@@ -13,8 +13,7 @@ import { Request, RequestHandler, Response } from "express";
 export const verifyOtp = (): RequestHandler => {
     return async (req: Request, res: Response): Promise<void> => {
         try {
-            const { tokens, user } = await AuthService.verifyOtp(req.body)
-            const { hasProfile, profile } = await ConsumerService.fetchProfile(user._id)
+            const { tokens, hasProfile, profile } = await AuthService.verifyOtp({ appType: "consumer", ...req.body })
             const data = { tokens, hasProfile, profile }
             ok_handler(res, "otp Verified", data)
         } catch (error) {
@@ -41,6 +40,9 @@ export const completeProfile = (): RequestHandler => {
     return async (req: Request, res: Response): Promise<void> => {
         try {
             if (!req.currentUser) {
+                throw new UnauthorizedAccessException("Unauthorized");
+            }
+            if (!req.appType && req.appType !== "consumer") {
                 throw new UnauthorizedAccessException("Unauthorized");
             }
             console.log("Controller:", req.currentUser)
@@ -123,3 +125,83 @@ export const getProviderProfileForBooking = (): RequestHandler => {
         }
     }
 }
+
+// Update the first and last name of the consumer
+export const updateName = (): RequestHandler => {
+    return async (req: Request, res: Response): Promise<void> => {
+        try {
+            if (!req.consumerProfile) {
+                throw new UnauthorizedAccessException("Unauthorized");
+            }
+
+            const data = await ConsumerService.updateName(
+                req.consumerProfile._id.toString(),
+                req.body
+            );
+
+            ok_handler(res, "Name updated successfully", data);
+        } catch (error) {
+            error_handler(error, req, res);
+        }
+    };
+};
+
+// Initiate email change (stores pending email and sends link)
+export const changeEmail = (): RequestHandler => {
+    return async (req: Request, res: Response): Promise<void> => {
+        try {
+            if (!req.consumerProfile) {
+                throw new UnauthorizedAccessException("Unauthorized");
+            }
+
+            const data = await ConsumerService.changeEmail(
+                req.consumerProfile._id.toString(),
+                req.body
+            );
+
+            ok_handler(res, "Verification link sent", data);
+        } catch (error) {
+            error_handler(error, req, res);
+        }
+    };
+};
+
+// Finalize email change (triggered by the link click)
+export const verifyEmailUpdate = (): RequestHandler => {
+    return async (req: Request, res: Response): Promise<void> => {
+        try {
+            const { token } = req.query; // Usually passed as ?token=...
+            if (!token) {
+                throw new MissingParameterException("Verification token is missing");
+            }
+
+            const data = await ConsumerService.verifyEmailUpdate(token as string);
+            ok_handler(res, "Email verified successfully", data);
+        } catch (error) {
+            error_handler(error, req, res);
+        }
+    };
+};
+
+
+// Update phone number using OTP verification
+export const changeNumber = (): RequestHandler => {
+    return async (req: Request, res: Response): Promise<void> => {
+        try {
+            if (!req.consumerProfile) {
+                throw new UnauthorizedAccessException("Unauthorized");
+            }
+
+            const data = await ConsumerService.changeNumber(
+                req.consumerProfile._id.toString(),
+                req.body
+            );
+
+            ok_handler(res, "Phone number updated successfully", data);
+        } catch (error) {
+            error_handler(error, req, res);
+        }
+    };
+};
+
+

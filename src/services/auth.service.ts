@@ -4,11 +4,13 @@ import { generateNumericOtp, hashOtp } from "../utils/otp.utils";
 import { sendOtpSms } from "../utils/twilio";
 import { BLOCK_DURATION_HOURS, MAX_COOLDOWN_SECONDS, MAX_SEND_PER_HOUR, MAX_VERIFY_ATTEMPTS, OTP_EXPIRY_MINUTES, RESEND_COOLDOWN_BASE } from "../configs/otpPolicy";
 import TooManyAttemptsException from "../exceptions/TooManyAttemptsException";
-import { generateTokens, getUserTokenInfo } from "../utils";
-import { createUser, getUserById, getUserByPhone } from "../models/user.model";
+import { AppRole, generateTokens, getUserTokenInfo } from "../utils";
+import {  getUserById, User } from "../models/user.model";
 import InvalidAccessCredentialsExceptions from "../exceptions/InvalidAccessCredentialsException";
 import { RefreshToken } from "../models/refresh-token.model";
 import ResourceNotFoundException from "../exceptions/ResourceNotFoundException";
+import MissingParameterException from "../exceptions/MissingParameterException";
+import { ConsumerService } from "./consumer.service";
 
 
 
@@ -17,12 +19,14 @@ class AuthServiceClass {
         // super()
     }
 
-    // send user otp via email for email verification 
+    /**
+    * Sends OTP to a phone number.
+    */
     public async sendOtpFunction(payload: { phone: string }) {
+        const { phone } = payload;
+        if (!phone) throw new MissingParameterException("Phone number is required");
+
         const formatTime = (seconds: number) => `${Math.floor(seconds / 60).toString().padStart(2, "0")}:${(seconds % 60).toString().padStart(2, "0")}`;
-        if (!payload.phone) {
-            throw new Exception("Phone number is required");
-        }
 
         const now = new Date();
         let session = await OtpSession.findOne({ phone: payload.phone });
@@ -77,7 +81,7 @@ class AuthServiceClass {
         session.verifyAttempts = 0;  // reset verify attempts
 
         // SEND OTP
-        const message = `Your ServiceHub OTP is: ${otp}. It expires in ${OTP_EXPIRY_MINUTES} minutes.`;
+        const message = `Your Code: ${otp}. It expires in ${OTP_EXPIRY_MINUTES} minutes.`;
         console.log(message)
         // await sendOtpSms(payload.phone, message);
 
@@ -86,6 +90,7 @@ class AuthServiceClass {
         const cooldown = Math.min(RESEND_COOLDOWN_BASE * session.sendCount, MAX_COOLDOWN_SECONDS);
         return { message: "OTP sent successfully", cooldown };
     }
+
     // resend otp function
     public async resendOtp(payload: { phone: string }) {
         if (!payload.phone) throw new Exception("Phone number is required");
@@ -130,10 +135,9 @@ class AuthServiceClass {
         return { message: "OTP resent successfully", cooldown };
     }
     // verify otp function
-    public async verifyOtp(payload: { phone: string, otp: string }) {
-        const phone = payload.phone
-        const otp = payload.otp
-        if (!phone || !otp) throw new Exception("Phone and OTP are required");
+    public async verifyOtp(payload: { phone: string, otp: string, appType: AppRole }) {
+        const { phone, otp, appType } = payload;
+        if (!phone || !otp || !appType) throw new Exception("Phone, OTP, and App Type are required");
 
         const now = new Date();
         const session = await OtpSession.findOne({ phone });
@@ -143,7 +147,7 @@ class AuthServiceClass {
             throw new TooManyAttemptsException("Too many attempts. Try again later.");
         }
 
-        if (session.expiresAt < now) throw new Exception("OTP expired. Please request a new code.");
+        if (session.expiresAt < now) throw new Exception("OTP expired.");
 
         if (session.verifyAttempts >= MAX_VERIFY_ATTEMPTS) {
             session.blockedUntil = new Date(now.getTime() + BLOCK_DURATION_HOURS * 60 * 60 * 1000);
@@ -157,27 +161,53 @@ class AuthServiceClass {
             throw new Exception("Invalid OTP. Please try again.");
         }
 
-        // OTP verified find or create consumer
-        let user = await getUserByPhone(phone);
+        // --- IDENTITY LOGIC START ---
+        const phoneField = appType === 'consumer' ? 'consumerPhone' : 'providerPhone';
+
+        //  Check if user exists with THIS specific role's phone
+        let user = await User.findOne({ [phoneField]: phone });
+
 
         if (!user) {
-            user = await createUser({
-                phone,
-                isEmailVerified: false
-            })
+            //  Check if they exist under the OTHER role's phone (to link them)
+            const otherField = appType === 'consumer' ? 'providerPhone' : 'consumerPhone';
+            user = await User.findOne({ [otherField]: phone });
+
+            if (user) {
+                // Link existing user to this new role
+                user[phoneField] = phone;
+                if (!user.activeRoles.includes(appType)) user.activeRoles.push(appType);
+                await user.save();
+            } else {
+                //  Brand new user for the whole system
+                user = await User.create({
+                    [phoneField]: phone,
+                    activeRoles: [appType]
+                });
+            }
         }
 
-        const tokens = await generateTokens(user);
+        const tokens = await generateTokens(user, appType);
         // success ....delete session
         await session.deleteOne();
 
+        // Fetch the profile for this specific app
+        let profileData;
+        if (appType === 'consumer') {
+            profileData = await ConsumerService.fetchProfile(user._id);
+        } else {
+            // profileData = await ProviderService.fetchProfile(user._id);
+        }
+
         return {
             tokens,
-            user
+            user,
+            ...profileData // This spreads { hasProfile, profile }
         };
     }
 
-    // fetch remaing cooldown
+    // fetch 
+    // ]remaing cooldown
     public async getCooldown(payload: { phone: string }) {
         const phone = payload.phone
         const session = await OtpSession.findOne({ phone });
@@ -189,28 +219,28 @@ class AuthServiceClass {
     }
     // refresh user's session
     public async refreshUserSession(refresh_token: string) {
-        const token_info = await getUserTokenInfo({
+        const { user, appType } = await getUserTokenInfo({
             token: refresh_token,
             token_type: "refresh"
         });
 
-        if (!token_info || !token_info.user) {
+        if (!user || !appType) {
             throw new InvalidAccessCredentialsExceptions("Session token is invallid")
         }
-        const tokenInDb = await RefreshToken.findOne({ refresh_token: refresh_token, user_id: token_info.user?._id });
+        const tokenInDb = await RefreshToken.findOne({ refresh_token: refresh_token, user_id: user?._id, appType });
         if (!tokenInDb) {
             throw new ResourceNotFoundException("in valid session token try login in again")
         }
-        const user = await getUserById(token_info.user?._id)
-        if (!user) {
+        const userDb = await getUserById(user?._id)
+        if (!userDb) {
             throw new ResourceNotFoundException("User not found")
         }
         await RefreshToken.deleteOne({ refresh_token })
 
-        const tokens = await generateTokens(user)
+        const tokens = await generateTokens(user, appType)
 
         return {
-            tokens, user
+            tokens
         }
 
     }

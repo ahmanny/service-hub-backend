@@ -1,61 +1,87 @@
 import mongoose, { Schema, model, Types } from 'mongoose';
 
 export interface IUser {
-  email?: string;
-  phone: string;
-  isEmailVerified: boolean;
-//   provider: 'local' | 'google' | 'facebook';
+  // Consumer Keys
+  consumerPhone?: string;
+  consumerEmail?: string;
+  isConsumerEmailVerified: boolean;
+
+  // Provider Keys
+  providerPhone?: string;
+  providerEmail?: string;
+  isProviderEmailVerified: boolean;
+
+  // Metadata
+  activeRoles: ('consumer' | 'provider')[];
 }
 
 const UserSchema = new Schema<IUser>({
-  email: {
+  // Phone keys - Sparse allows them to be null until the specific app is used
+  consumerPhone: {
     type: String,
-    trim: true,
     unique: true,
-    default: undefined,
-    index: {
-      unique: true,
-      partialFilterExpression: { email: { $type: "string" } },
-    },
+    sparse: true,
+    trim: true
   },
-
-  phone: {
+  providerPhone: {
     type: String,
-    required: true,
-    unique: true, // primary identifier
+    unique: true,
+    sparse: true,
+    trim: true
   },
 
-  isEmailVerified: { type: Boolean, default: false },
+  // Email keys
+  consumerEmail: {
+    type: String,
+    unique: true,
+    sparse: true,
+    lowercase: true,
+    trim: true
+  },
+  providerEmail: {
+    type: String,
+    unique: true,
+    sparse: true,
+    lowercase: true,
+    trim: true
+  },
 
+  // Verification flags
+  isConsumerEmailVerified: { type: Boolean, default: false },
+  isProviderEmailVerified: { type: Boolean, default: false },
+
+  // Roles tracking
+  activeRoles: {
+    type: [String],
+    enum: ['consumer', 'provider'],
+    default: []
+  }
 }, {
   timestamps: true,
 });
 
 
-// 2dsphere index for geospatial queries
-UserSchema.index({ location: '2dsphere' });
-
-
 export const User = model<IUser>('User', UserSchema);
 
-//Methods
+/** 
+ * * Helper Methods
+ */
 
 export const getUsers = () => User.find();
 
-export const getUserByPhone = (phone: string) =>
-  User.findOne({ phone });
+// Find by specific role phone
+export const getUserByConsumerPhone = (phone: string) => User.findOne({ consumerPhone: phone });
+export const getUserByProviderPhone = (phone: string) => User.findOne({ providerPhone: phone });
 
-export const getUserByEmail = (email: string) =>
-  User.findOne({ email });
+// Global check: Find a user who owns this phone number in ANY role
+export const findUserByAnyPhone = (phone: string) =>
+  User.findOne({ $or: [{ consumerPhone: phone }, { providerPhone: phone }] });
 
-export const getUserById = (id: string) =>
-  User.findById(id);
+export const getUserById = (id: string) => User.findById(id);
 
-export const createUser = (values: Partial<IUser>) =>
-  new User(values).save();
+export const createUser = (values: Partial<IUser>) => new User(values).save();
 
 export const updateUserById = (id: string, values: Partial<IUser>) =>
   User.findByIdAndUpdate(id, values, { new: true, runValidators: true });
 
-export const deleteUserById = (id: string) =>
-  User.findByIdAndDelete(id);
+export const deleteUserById = (id: string) => User.findByIdAndDelete(id);
