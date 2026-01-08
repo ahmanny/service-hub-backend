@@ -136,16 +136,19 @@ class ConsumerServiceClass {
 
     // update address 
     public async updateAddress(
-        consumerId: string,
-        addressId: string,
-        payload: Partial<{
-            label: string;
-            formattedAddress: string;
-            latitude: number;
-            longitude: number;
-        }>
+        payload: {
+            consumerId: string,
+            addressId: string,
+            update: Partial<{
+                label: string;
+                formattedAddress: string;
+                latitude: number;
+                longitude: number;
+            }>
+        }
     ) {
-        const { label, formattedAddress, latitude, longitude } = payload;
+        const { update, addressId, consumerId } = payload
+        const { label, formattedAddress, latitude, longitude } = update;
         console.log("Payload", payload)
 
         // Build the update object dynamically for the specific array element

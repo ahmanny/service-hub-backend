@@ -79,11 +79,7 @@ export const updateAddress = (): RequestHandler => {
                 throw new MissingParameterException("Address ID is missing");
             }
 
-            const data = await ConsumerService.updateAddress(
-                req.consumerProfile._id.toString(),
-                addressId,
-                req.body
-            );
+            const data = await ConsumerService.updateAddress({ addressId, consumerId:req.consumerProfile._id.toString(), update: { ...req.body } });
 
             ok_handler(res, "Address updated successfully", data);
         } catch (error) {
