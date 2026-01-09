@@ -252,7 +252,7 @@ class AuthServiceClass {
     public async logout(refresh_token: string) {
         const tokenInDb = await RefreshToken.findOne({ refresh_token })
         if (!tokenInDb) {
-            throw new InvalidAccessCredentialsExceptions("You are not logged in any session.")
+            return { message: "success" }
         }
         // delete the token from the db
         await RefreshToken.deleteOne({ refresh_token })

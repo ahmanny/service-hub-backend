@@ -72,9 +72,6 @@ export const logout = (): RequestHandler => {
     return async (req: Request, res: Response): Promise<void> => {
         try {
             const { refresh_token } = req.body
-            if (!refresh_token) {
-                throw new MissingParameterException("Session Refresh Token Needed")
-            }
             await AuthService.logout(refresh_token)
             ok_handler(res, "Logged out successfully")
         } catch (error) {
