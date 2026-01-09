@@ -3,9 +3,6 @@ export interface SearchPayload {
     lng: number,
     lat: number,
     maxDist: number
-    service: string;
-    locationType: string | null;
-    bookingDateTime: Date;
 }
 
 export type LocationTuple = [number, number];

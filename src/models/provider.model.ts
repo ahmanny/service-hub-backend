@@ -1,5 +1,6 @@
 import mongoose, { Schema, Types, model } from "mongoose";
 import { GeoAddress, GeoPointSchema } from "./schemas/geoPoint.schema";
+import { ServiceType } from "../types/service.types";
 
 export interface Services {
     name: string;
@@ -25,12 +26,7 @@ export interface IProviderProfile {
     isAvailable: boolean;
     availabilityMode: "instant" | "scheduled";
 
-    serviceType:
-    | "barber"
-    | "hair_stylist"
-    | "electrician"
-    | "plumber"
-    | "house_cleaning";
+    serviceType: ServiceType
 
     basePriceFrom: number;
     homeServiceAvailable: boolean;

@@ -15,6 +15,8 @@ import TooManyAttemptsException from '../exceptions/TooManyAttemptsException';
 import { BLOCK_DURATION_HOURS, MAX_VERIFY_ATTEMPTS } from '../configs/otpPolicy';
 import { hashOtp } from '../utils/otp.utils';
 import { JwtService } from './jwt.service';
+import { ServiceType } from '../types/service.types';
+import { ProviderListItem } from '../types/providers.types';
 
 
 class ConsumerServiceClass {
@@ -370,110 +372,6 @@ class ConsumerServiceClass {
         return await this.fetchProfile(user._id);
     }
 
-    public async searchNearbyProviders(payload: SearchPayload) {
-        const {
-            serviceType,
-            service,
-            lat,
-            lng,
-            maxDist = 2000,
-            locationType,
-        } = payload;
-
-        // build geo query 
-        const geoQuery: any = {
-            serviceType,
-        };
-        // Filter by specific service (services.value)
-        if (service) {
-            geoQuery["services.value"] = service;
-        }
-
-        // Home service only
-        if (locationType === "home") {
-            geoQuery.homeServiceAvailable = true;
-        }
-
-        // Optional future-safe filters (keep commented until needed)
-        // geoQuery.isAvailable = true;
-        // geoQuery.isVerified = true;
-
-        //  geo search
-        const providers = await Provider.aggregate([
-            {
-                $geoNear: {
-                    near: {
-                        type: "Point",
-                        coordinates: [lng, lat],
-                    },
-                    distanceField: "straightDistance",
-                    // maxDistance: maxDist, // meters
-                    spherical: true,
-                    query: geoQuery,
-                },
-            },
-            { $sort: { straightDistance: 1 } },
-            { $limit: 3 }, // fetch 4 closest
-        ]);
-        // Enrich with time ,route distance and direction route
-        const results = await Promise.all(
-            providers.map(async (provider, index) => {
-                try {
-                    const direction = await getDirections(
-                        [lng, lat],
-                        provider.location.coordinates
-                    );
-
-                    const route = direction?.routes?.[0];
-                    const selectedService = service
-                        ? provider.services?.find(
-                            (s: any) => s.value === service
-                        )
-                        : null;
-
-                    return {
-                        _id: provider._id,
-                        firstName: provider.firstName,
-                        serviceType: provider.serviceType,
-                        availabilityMode: provider.availabilityMode,
-                        price: selectedService?.price ?? null,
-                        serviceName: selectedService?.name ?? null,
-                        rating: provider.rating,
-                        profilePicture: provider.profilePicture,
-
-                        distance: route
-                            ? Math.round((route.distance / 1000) * 10) / 10 // km
-                            : Math.round((provider.straightDistance / 1000) * 10) / 10,
-
-                        duration: route
-                            ? Math.round(route.duration / 60) // minutes
-                            : null,
-                        directionCoordinates: route?.geometry?.coordinates ?? null,
-
-                        isClosest: index === 0,
-                    };
-                } catch (error) {
-                    // console.log(error)
-                    // Fallback if routing fails
-                    return {
-                        _id: provider._id,
-                        firstName: provider.firstName,
-                        availabilityMode: provider.availabilityMode,
-                        basePriceFrom: provider.basePriceFrom,
-                        rating: provider.rating,
-                        profilePicture: provider.profilePicture,
-
-                        distance: Math.round((provider.straightDistance / 1000) * 10) / 10,
-                        duration: null,
-                        directionCoordinates: null,
-                        isClosest: index === 0,
-                    };
-                }
-            })
-        );
-        return results;
-    }
-
     public async fetchProviderProfileForBooking(providerId: string) {
         const provider = await Provider.findById(providerId).select(
             {
@@ -492,6 +390,33 @@ class ConsumerServiceClass {
         return { provider };
     }
 
+
+    public async searchNearbyProviders(payload: SearchPayload) {
+        const { serviceType, lat, lng } = payload;
+
+        if (serviceType === "all") {
+            const categories: ServiceType[] = ["barber", "hair_stylist", "electrician", "plumber", "house_cleaning"];
+
+            const dashboardResults = await Promise.all(
+                categories.map(async (type) => {
+                    const providers = await this.executeGeoSearch(type, lat, lng, 4);
+                    return {
+                        type,
+                        providers: this.mapToSearchResult(providers)
+                    };
+                })
+            );
+
+            return dashboardResults.reduce((acc, curr) => {
+                acc[curr.type] = curr.providers;
+                return acc;
+            }, {} as Record<string, ProviderListItem[]>);
+        }
+
+        // 2. Logic for Specific Tab - Returns ProviderListItem[]
+        const providers = await this.executeGeoSearch(serviceType, lat, lng, 20);
+        return this.mapToSearchResult(providers);
+    }
 
     /**
      * PRIVATE UTILS
@@ -514,6 +439,42 @@ class ConsumerServiceClass {
                 createdAt: userId?.createdAt
             }
         };
+    }
+
+    /**
+ * Core MongoDB Geo-spatial Aggregation
+ */
+    private async executeGeoSearch(type: string, lng: number, lat: number, limit: number) {
+        const query: any = { serviceType: type };
+
+        return await Provider.aggregate([
+            {
+                $geoNear: {
+                    near: { type: "Point", coordinates: [lng, lat] },
+                    distanceField: "straightDistance", // distance in meters
+                    spherical: true,
+                    query: query,
+                },
+            },
+            { $limit: limit },
+        ]);
+    }
+    /**
+     * Maps DB documents to the ProviderListItem interface
+     */
+    private mapToSearchResult(providers: any[]): ProviderListItem[] {
+        return providers.map((provider, index) => ({
+            _id: provider._id.toString(),
+            firstName: provider.firstName,
+            serviceType: provider.serviceType,
+            availabilityMode: provider.availabilityMode, // instant | schedule | offline
+            basePrice: provider.basePrice || 0,
+            rating: provider.rating || 0,
+            profilePicture: provider.profilePicture || null,
+            distance: Math.round(provider.straightDistance), // in meters
+            duration: null, // Removed enrichment
+            isClosest: index === 0,
+        }));
     }
 }
 
