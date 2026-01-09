@@ -391,6 +391,32 @@ class ConsumerServiceClass {
     }
 
 
+    public async fetchProviders(payload: SearchPayload) {
+        const { serviceType, lat, lng } = payload;
+
+        if (serviceType === "all") {
+            const categories: ServiceType[] = ["barber", "hair_stylist", "electrician", "plumber", "house_cleaning"];
+
+            const dashboardResults = await Promise.all(
+                categories.map(async (type) => {
+                    const providers = await this.executeGeoSearch(type, lat, lng, 4);
+                    return {
+                        type,
+                        providers: this.mapToSearchResult(providers)
+                    };
+                })
+            );
+
+            return dashboardResults.reduce((acc, curr) => {
+                acc[curr.type] = curr.providers;
+                return acc;
+            }, {} as Record<string, ProviderListItem[]>);
+        }
+
+        const providers = await this.executeGeoSearch(serviceType, lat, lng, 20);
+        return this.mapToSearchResult(providers);
+    }
+
     public async searchNearbyProviders(payload: SearchPayload) {
         const { serviceType, lat, lng } = payload;
 
@@ -468,7 +494,7 @@ class ConsumerServiceClass {
             firstName: provider.firstName,
             serviceType: provider.serviceType,
             availabilityMode: provider.availabilityMode, // instant | schedule | offline
-            basePrice: provider.basePrice || 0,
+            basePrice: provider.basePriceFrom || 0,
             rating: provider.rating || 0,
             profilePicture: provider.profilePicture || null,
             distance: Math.round(provider.straightDistance), // in meters

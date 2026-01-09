@@ -21,21 +21,3 @@ export const searchNearbyProviders = (): RequestHandler => {
         }
     }
 }
-export const getProviders = (): RequestHandler => {
-    return async (req: Request, res: Response): Promise<void> => {
-        try {
-            if (!req.currentUser) {
-                throw new UnauthorizedAccessException("Unauthorized");
-            }
-            const serviceType = String(req.query.serviceType);
-            const lat = Number(req.query.lat);
-            const lng = Number(req.query.lng);
-            const maxDist = Number(req.query.maxDist) || 2000
-            const data = await ConsumerService.searchNearbyProviders({ serviceType, lat, lng, maxDist })
-
-            ok_handler(res, "provider", data)
-        } catch (error) {
-            error_handler(error, req, res)
-        }
-    }
-}

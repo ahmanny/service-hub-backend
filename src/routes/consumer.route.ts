@@ -1,6 +1,5 @@
 import { Router } from 'express';
 import * as controller from '../controllers/consumer/consumer.controller';
-import * as SearchController from '../controllers/consumer/search.controller';
 import { AuthMiddleware } from '../middlewares';
 
 export const consumerRoutes = Router();
@@ -32,5 +31,5 @@ consumerRoutes.delete('/address/:addressId', controller.deleteAddress());
 /**
  * Search & Booking
  */
-consumerRoutes.get('/home/providers', SearchController.getProviders());
+consumerRoutes.get('/home/providers', controller.getProviders());
 consumerRoutes.get('/providers/:providerId', controller.getProviderProfileForBooking());

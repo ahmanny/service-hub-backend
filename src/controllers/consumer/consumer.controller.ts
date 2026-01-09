@@ -79,7 +79,7 @@ export const updateAddress = (): RequestHandler => {
                 throw new MissingParameterException("Address ID is missing");
             }
 
-            const data = await ConsumerService.updateAddress({ addressId, consumerId:req.consumerProfile._id.toString(), update: { ...req.body } });
+            const data = await ConsumerService.updateAddress({ addressId, consumerId: req.consumerProfile._id.toString(), update: { ...req.body } });
 
             ok_handler(res, "Address updated successfully", data);
         } catch (error) {
@@ -127,6 +127,24 @@ export const setAddressDefault = (): RequestHandler => {
         }
     };
 };
+export const getProviders = (): RequestHandler => {
+    return async (req: Request, res: Response): Promise<void> => {
+        try {
+            if (!req.currentUser) {
+                throw new UnauthorizedAccessException("Unauthorized");
+            }
+            const serviceType = String(req.query.serviceType);
+            const lat = Number(req.query.lat);
+            const lng = Number(req.query.lng);
+            const maxDist = Number(req.query.maxDist) || 2000
+            const data = await ConsumerService.fetchProviders({ serviceType, lat, lng, maxDist })
+
+            ok_handler(res, "provider", data)
+        } catch (error) {
+            error_handler(error, req, res)
+        }
+    }
+}
 // get a provider profile for booking
 export const getProviderProfileForBooking = (): RequestHandler => {
     return async (req: Request, res: Response): Promise<void> => {
