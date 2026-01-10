@@ -9,44 +9,50 @@ export interface Services {
 }
 
 export interface IProviderShopAddress {
-    address?: string;
+    address: string;
     city?: string;
     state?: string;
-    zipCode?: string;
-    country?: string;
+    location: {
+        type: 'Point';
+        coordinates: [number, number]; // [longitude, latitude]
+    };
+}
+
+//  Availability Interface 
+export interface IAvailabilityDay {
+    dayOfWeek: number; // 0 (Sunday) to 6 (Saturday)
+    slots: { start: string; end: string }[]; //  { start: "09:00", end: "17:00" }
+    isClosed: boolean;
 }
 
 export interface IProviderProfile {
     userId: Types.ObjectId;
-
     firstName?: string;
     lastName?: string;
     profilePicture?: string;
-
     isAvailable: boolean;
     availabilityMode: "instant" | "scheduled";
-
-    serviceType: ServiceType
-
+    serviceType: ServiceType;
     basePriceFrom: number;
     homeServiceAvailable: boolean;
     services: Services[];
-
     rating: number;
     isVerified: boolean;
-
     shopAddress?: IProviderShopAddress;
-
-    location?: GeoAddress
+    availability: IAvailabilityDay[];
 }
+
+//  Schemas 
 
 const ProviderShopAddressSchema = new Schema<IProviderShopAddress>(
     {
-        address: String,
+        address: { type: String, required: true },
         city: String,
         state: String,
-        zipCode: String,
-        country: String,
+        location: {
+            type: { type: String, enum: ['Point'], default: 'Point' },
+            coordinates: { type: [Number], required: true } // [long, lat]
+        }
     },
     { _id: false }
 );
@@ -60,98 +66,54 @@ const ServiceSchema = new Schema<Services>(
     { _id: false }
 );
 
+const AvailabilitySchema = new Schema<IAvailabilityDay>(
+    {
+        dayOfWeek: { type: Number, required: true }, // 0-6
+        slots: [{
+            start: String,
+            end: String
+        }],
+        isClosed: { type: Boolean, default: false }
+    },
+    { _id: false }
+);
 
 const ProviderSchema = new Schema<IProviderProfile>(
     {
         userId: {
             type: Schema.Types.ObjectId,
-            // ref: "User",
             required: true,
-            unique: true, // one provider profile per user
+            unique: true,
             index: true,
         },
-
         firstName: { type: String, trim: true },
         lastName: { type: String, trim: true },
-
         profilePicture: { type: String },
-
-        isAvailable: {
-            type: Boolean,
-            default: true,
-            index: true,
-        },
-
+        isAvailable: { type: Boolean, default: true, index: true },
         availabilityMode: {
             type: String,
             enum: ["instant", "scheduled"],
             default: "scheduled",
             required: true,
         },
-
         serviceType: {
             type: String,
-            enum: [
-                "barber",
-                "hair_stylist",
-                "electrician",
-                "plumber",
-                "house_cleaning",
-            ],
             required: true,
             index: true,
         },
-
-        basePriceFrom: {
-            type: Number,
-            required: true,
-            min: 0,
-        },
-
-        services: {
-            type: [ServiceSchema],
-            default: [],
-        },
-
-        rating: {
-            type: Number,
-            default: 0,
-            min: 0,
-            max: 5,
-        },
-
-        isVerified: {
-            type: Boolean,
-            default: false,
-            index: true,
-        },
-        homeServiceAvailable: {
-            type: Boolean,
-            default: false,
-        },
-
+        basePriceFrom: { type: Number, required: true, min: 0 },
+        services: { type: [ServiceSchema], default: [] },
+        rating: { type: Number, default: 0, min: 0, max: 5 },
+        isVerified: { type: Boolean, default: false, index: true },
+        homeServiceAvailable: { type: Boolean, default: false },
         shopAddress: ProviderShopAddressSchema,
-
-        location: GeoPointSchema
+        availability: { type: [AvailabilitySchema], default: [] }
     },
-    {
-        timestamps: true,
-    }
+    { timestamps: true }
 );
 
-// Geo queries
-ProviderSchema.index({ location: "2dsphere" });
+// Indexes
+ProviderSchema.index({ "shopAddress.location": "2dsphere" });
+ProviderSchema.index({ serviceType: 1, isAvailable: 1 });
 
-// Common search patterns
-ProviderSchema.index({ serviceType: 1, isAvailable: 1, "services.value": 1, });
-ProviderSchema.index({ rating: -1 });
-
-ProviderSchema.virtual("fullName").get(function () {
-    return `${this.firstName ?? ""} ${this.lastName ?? ""}`.trim();
-});
-
-
-export const Provider = model<IProviderProfile>(
-    "Provider",
-    ProviderSchema
-);
+export const Provider = model<IProviderProfile>("Provider", ProviderSchema);

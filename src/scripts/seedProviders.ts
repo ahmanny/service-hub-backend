@@ -1,11 +1,16 @@
 import mongoose from "mongoose";
-import { Provider } from "../models/provider.model";
+import { Provider, IProviderProfile } from "../models/provider.model";
 import { connectDB } from "../configs/db";
-import { BARBER_SERVICES, ELECTRICIAN_SERVICES, HAIR_STYLIST_SERVICES, HOUSE_CLEANING_SERVICES, PLUMBER_SERVICES } from "../constants/services";
+import {
+  BARBER_SERVICES,
+  ELECTRICIAN_SERVICES,
+  HAIR_STYLIST_SERVICES,
+  HOUSE_CLEANING_SERVICES,
+  PLUMBER_SERVICES
+} from "../constants/services";
 
 const BASE_LAT = 9.8494;
 const BASE_LNG = 8.88885;
-
 
 const SERVICE_MAP: Record<string, { name: string; value: string }[]> = {
   barber: BARBER_SERVICES,
@@ -15,10 +20,7 @@ const SERVICE_MAP: Record<string, { name: string; value: string }[]> = {
   house_cleaning: HOUSE_CLEANING_SERVICES,
 };
 
-
-
-// small random offset (keeps providers close)
-const randomOffset = () => (Math.random() - 0.5) * 0.004;
+const randomOffset = () => (Math.random() - 0.5) * 0.01; // Slightly larger spread
 
 const serviceTypes = [
   "plumber",
@@ -29,86 +31,87 @@ const serviceTypes = [
 ];
 
 const firstNames = [
-  "John",
-  "Samuel",
-  "Aisha",
-  "Grace",
-  "Peter",
-  "Ruth",
-  "David",
-  "Zainab",
-  "Emeka",
-  "Fatima",
-  "Tosin",
-  "Blessing",
-  "Kelvin",
-  "Hadiza",
-  "Michael",
-  "Abdul",
-  "Ngozi",
-  "Sadiq",
-  "Tunde",
-  "Ibrahim",
+  "John", "Samuel", "Aisha", "Grace", "Peter", "Ruth", "David", "Zainab",
+  "Emeka", "Fatima", "Tosin", "Blessing", "Kelvin", "Hadiza", "Michael",
+  "Abdul", "Ngozi", "Sadiq", "Tunde", "Ibrahim",
 ];
 
+// Helper to generate a standard work week
+const generateAvailability = () => {
+  return Array.from({ length: 7 }).map((_, i) => ({
+    dayOfWeek: i,
+    isClosed: i === 0, // Sunday closed
+    slots: i === 0 ? [] : [{ start: "08:00", end: "18:00" }]
+  }));
+};
+
 const seedProviders = async () => {
-  await connectDB();
+  try {
+    await connectDB();
+    console.log("Seeding providers...");
 
-  console.log("Seeding providers...");
+    // Clear old data 
+    await Provider.deleteMany({});
 
-  //clear old data 
-  await Provider.deleteMany({});
+    const providers = Array.from({ length: 20 }).map((_, index) => {
+      const serviceType = serviceTypes[index % serviceTypes.length];
+      const catalog = SERVICE_MAP[serviceType];
 
-  const providers = Array.from({ length: 20 }).map((_, index) => {
-    const serviceType = serviceTypes[index % serviceTypes.length];
+      // Pick 2–4 services per provider
+      const selectedServices = catalog
+        .sort(() => 0.5 - Math.random())
+        .slice(0, Math.floor(Math.random() * 3) + 2)
+        .map(service => ({
+          name: service.name,
+          value: service.value,
+          price: 3000 + Math.floor(Math.random() * 7000),
+        }));
 
-    const catalog = SERVICE_MAP[serviceType];
+      const providerData: Partial<IProviderProfile> = {
+        userId: new mongoose.Types.ObjectId(),
+        firstName: firstNames[index],
+        lastName: "Test",
+        profilePicture: `https://i.pravatar.cc/150?img=${index + 1}`,
 
-    // pick 2–4 services per provider
-    const selectedServices = catalog
-      .sort(() => 0.5 - Math.random())
-      .slice(0, Math.floor(Math.random() * 3) + 2)
-      .map(service => ({
-        name: service.name,
-        value: service.value,
-        price: 3000 + Math.floor(Math.random() * 7000),
-      }));
+        isVerified: Math.random() > 0.4,
+        isAvailable: true,
+        homeServiceAvailable: Math.random() > 0.3,
 
-    return {
-      userId: new mongoose.Types.ObjectId(),
+        serviceType: serviceType as any,
+        availabilityMode: Math.random() > 0.5 ? "instant" : "scheduled",
+        basePriceFrom: 2000 + Math.floor(Math.random() * 5000),
+        rating: Number((4.0 + Math.random() * 1.0).toFixed(1)),
 
-      firstName: firstNames[index],
-      lastName: "Test",
+        services: selectedServices,
 
-      isVerified: Math.random() > 0.5,
-      isAvailable: Math.random() > 0.5,
-      homeServiceAvailable: Math.random() > 0.5,
+        // Matches the new IProviderShopAddress interface
+        shopAddress: {
+          address: `${index + 10} Professional Way, Tech Hub`,
+          city: "Jos",
+          state: "Plateau",
+          location: {
+            type: "Point",
+            coordinates: [
+              BASE_LNG + randomOffset(),
+              BASE_LAT + randomOffset(),
+            ],
+          },
+        },
 
-      serviceType,
-      availabilityMode: Math.random() > 0.5 ? "instant" : "scheduled",
+        // Matches the IAvailabilityDay interface
+        availability: generateAvailability(),
+      };
 
-      basePriceFrom: 2000 + Math.floor(Math.random() * 7000),
-      rating: Number((4.2 + Math.random() * 0.7).toFixed(1)),
+      return providerData;
+    });
 
-      services: selectedServices,
-
-      location: {
-        type: "Point",
-        coordinates: [
-          BASE_LNG + randomOffset(),
-          BASE_LAT + randomOffset(),
-        ],
-      },
-
-      profilePicture: `https://i.pravatar.cc/150?img=${index + 1}`,
-    };
-
-  });
-
-  await Provider.insertMany(providers);
-
-  console.log("Providers seeded successfully");
-  process.exit(0);
+    await Provider.insertMany(providers);
+    console.log(`✅ Successfully seeded ${providers.length} providers.`);
+    process.exit(0);
+  } catch (error) {
+    console.error("❌ Seeding failed:", error);
+    process.exit(1);
+  }
 };
 
 seedProviders();
