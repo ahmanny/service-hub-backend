@@ -493,12 +493,12 @@ class ConsumerServiceClass {
             _id: provider._id.toString(),
             firstName: provider.firstName,
             serviceType: provider.serviceType,
-            availabilityMode: provider.availabilityMode, // instant | schedule | offline
+            availabilityMode: provider.availabilityMode,
             basePrice: provider.basePriceFrom || 0,
             rating: provider.rating || 0,
             profilePicture: provider.profilePicture || null,
-            distance: Math.round(provider.straightDistance), // in meters
-            duration: null, // Removed enrichment
+            distance: Math.round((provider.straightDistance / 1000) * 10) / 10,
+            duration: null,
             isClosest: index === 0,
         }));
     }
