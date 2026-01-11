@@ -373,21 +373,19 @@ class ConsumerServiceClass {
     }
 
     public async fetchProviderProfileForBooking(providerId: string) {
-        const provider = await Provider.findById(providerId).select(
-            {
-                homeServiceAvailable: 1,
-                services: 1,
-                shopAddress: 1
-            }
-        ).lean()
-        // { userId: providerId, isAvailable: true },
+        // Fetch provider with all fields defined in your IProviderProfile
+        const provider = await Provider.findById(providerId).lean();
+        // .populate("userId", "consumerPhone consumerEmail") // If you need to contact the provider
 
 
         if (!provider) {
             throw new ResourceNotFoundException("Provider not available");
         }
 
-        return { provider };
+        // Optional: If your frontend expects 'id' instead of '_id'
+        return {
+            provider
+        };
     }
 
 
