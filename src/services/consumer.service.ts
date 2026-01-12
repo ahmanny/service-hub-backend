@@ -392,7 +392,7 @@ class ConsumerServiceClass {
             const d = new Date(b.scheduledAt);
             return {
                 date: d.toISOString().split('T')[0],
-                startTime: `${d.getUTCHours().toString().padStart(2, '0')}:00`
+                startTime: `${d.getHours().toString().padStart(2, '0')}:00`
             };
         });
 
