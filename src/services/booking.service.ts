@@ -16,7 +16,6 @@ class BookingServiceClass {
             consumerId,
             providerId,
             service,
-            serviceName,
             scheduledAt,
             locationType,
             geoAddress,
@@ -24,61 +23,61 @@ class BookingServiceClass {
             note,
         } = payload;
 
-        // Basic Validation
-        if (!consumerId || !providerId) throw new Exception("Invalid consumer or provider");
-        if (!service || !serviceName) throw new MissingParameterException("Service information is required");
 
+        // verify the slot is still availaible 
         const bookingDate = new Date(scheduledAt);
-        if (isNaN(bookingDate.getTime()) || bookingDate < new Date()) {
-            throw new Exception("Scheduled time must be a valid future date");
+        const existingBooking = await Booking.findOne({
+            providerId,
+            scheduledAt: bookingDate,
+            status: { $in: ["pending", "confirmed"] }
+        });
+
+        if (existingBooking) {
+            throw new Exception("This time slot has just been taken. Please choose another.");
         }
 
-        const provider = await Provider.findById(providerId)
-            .select("shopAddress services serviceType")
-            .lean();
-
+        const provider = await Provider.findById(providerId).lean();
         if (!provider) throw new Exception("Provider not found");
 
-        // 1. Pricing & Service Validation
-        const selectedService = provider.services?.find((s: any) => s.value === service);
-        if (!selectedService) {
-            throw new Exception("Selected service is no longer offered by this provider");
-        }
+        const selectedService = provider.services?.find((s) => s.value === service);
+        if (!selectedService) throw new Exception("Service no longer available");
 
-        // 2. Location & Price Snapshot Logic
-        let location: any = { type: locationType };
         const basePrice = selectedService.price;
-        const homeFee = locationType === "home" ? 3000 : 0; // Use 3000 as requested
-        const platformFee = 0; // Set your platform fee logic here if needed
+        const homeFee = locationType === "home" ? 1200 : 0;
+        const total = basePrice + homeFee;
+
+        let finalLocation: any = { type: locationType };
 
         if (locationType === "home") {
-            if (!geoAddress && !textAddress) {
-                throw new MissingParameterException("Address is required for home service");
+            if (!geoAddress || !textAddress) {
+                throw new MissingParameterException("Please provide your home address");
             }
-            location.geoAddress = geoAddress;
-            location.textAddress = textAddress;
+            finalLocation.geoAddress = geoAddress;
+            finalLocation.textAddress = textAddress;
         } else {
+            // If shop, we grab the address directly from the provider's profile
             if (!provider.shopAddress) {
-                throw new Exception("This provider does not have a physical shop address set");
+                throw new Exception("Provider does not have a shop address set");
             }
-            location.textAddress = provider.shopAddress;
+            finalLocation.textAddress = provider.shopAddress.address; // String address
+            finalLocation.geoAddress = provider.shopAddress.location; // GeoJSON Point
         }
 
-        // 3. Create Booking with the full Price Object
+
+
         const booking = await Booking.create({
             consumerId,
             providerId,
             service,
-            serviceName,
+            serviceName: selectedService.name,
             serviceType: provider.serviceType,
             price: {
                 service: basePrice,
                 homeServiceFee: homeFee,
-                platformFee: platformFee,
-                total: basePrice + homeFee + platformFee
+                total: total
             },
             scheduledAt: bookingDate,
-            location,
+            location: finalLocation,
             note,
             status: "pending",
         });

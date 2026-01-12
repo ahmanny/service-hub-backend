@@ -17,6 +17,7 @@ import { hashOtp } from '../utils/otp.utils';
 import { JwtService } from './jwt.service';
 import { ServiceType } from '../types/service.types';
 import { ProviderListItem } from '../types/providers.types';
+import { Booking } from '../models/booking.model';
 
 
 class ConsumerServiceClass {
@@ -381,10 +382,22 @@ class ConsumerServiceClass {
         if (!provider) {
             throw new ResourceNotFoundException("Provider not available");
         }
+        const activeBookings = await Booking.find({
+            providerId: provider._id,
+            status: { $in: ["pending", "confirmed"] },
+            scheduledAt: { $gte: new Date() }
+        }).select("scheduledAt").lean();
 
-        // Optional: If your frontend expects 'id' instead of '_id'
+        const bookedSlots = activeBookings.map(b => {
+            const d = new Date(b.scheduledAt);
+            return {
+                date: d.toISOString().split('T')[0],
+                startTime: `${d.getUTCHours().toString().padStart(2, '0')}:00`
+            };
+        });
+
         return {
-            provider
+            provider: { ...provider, bookedSlots }
         };
     }
 

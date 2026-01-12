@@ -9,6 +9,7 @@ import {
   PLUMBER_SERVICES
 } from "../constants/services";
 
+// Coordinates for Gwagwalada/Jos area context
 const BASE_LAT = 9.8494;
 const BASE_LNG = 8.88885;
 
@@ -19,8 +20,6 @@ const SERVICE_MAP: Record<string, { name: string; value: string }[]> = {
   plumber: PLUMBER_SERVICES,
   house_cleaning: HOUSE_CLEANING_SERVICES,
 };
-
-const randomOffset = () => (Math.random() - 0.5) * 0.01; // Slightly larger spread
 
 const serviceTypes = [
   "plumber",
@@ -33,31 +32,68 @@ const serviceTypes = [
 const firstNames = [
   "John", "Samuel", "Aisha", "Grace", "Peter", "Ruth", "David", "Zainab",
   "Emeka", "Fatima", "Tosin", "Blessing", "Kelvin", "Hadiza", "Michael",
-  "Abdul", "Ngozi", "Sadiq", "Tunde", "Ibrahim",
+  "Abdul", "Ngozi", "Sadiq", "Tunde", "Ibrahim", "Solomon", "Chidi", "Bisi",
+  "Umar", "Kelechi", "Yusuf", "Joy", "Victor", "Sarah", "Musa", "Daniel",
+  "Rita", "Omer", "Bunmi", "Sani", "Amaka", "Felix", "Gloria", "Emma", "Hope",
+  "Suleiman", "Deborah", "Kazeem", "Anita", "Paul", "Mary", "Lekan", "Efe", "Dapo", "Rose"
 ];
 
-// Helper to generate a standard work week
-const generateAvailability = () => {
-  return Array.from({ length: 7 }).map((_, i) => ({
-    dayOfWeek: i,
-    isClosed: i === 0, // Sunday closed
-    slots: i === 0 ? [] : [{ start: "08:00", end: "18:00" }]
-  }));
+/**
+ * Logic:
+ * 1. Barbers: Closed Friday. Open Sunday (4pm-10pm). Others (8am-10pm).
+ * 2. Others: Closed Sunday. Open Friday (8am-10pm). Others (8am-10pm).
+ */
+const generateSpecificAvailability = (serviceType: string) => {
+  return Array.from({ length: 7 }).map((_, i) => {
+    const isBarber = serviceType === "barber";
+    const dayOfWeek = i; // 0=Sun, 1=Mon... 5=Fri, 6=Sat
+
+    // --- SUNDAY LOGIC (0) ---
+    if (dayOfWeek === 0) {
+      if (isBarber) {
+        return {
+          dayOfWeek,
+          isClosed: false,
+          slots: [{ start: "16:00", end: "22:00" }]
+        };
+      }
+      return { dayOfWeek, isClosed: true, slots: [] };
+    }
+
+    // --- FRIDAY LOGIC (5) ---
+    if (dayOfWeek === 5) {
+      if (isBarber) {
+        return { dayOfWeek, isClosed: true, slots: [] };
+      }
+      return {
+        dayOfWeek,
+        isClosed: false,
+        slots: [{ start: "08:00", end: "22:00" }]
+      };
+    }
+
+    // --- NORMAL DAYS (Mon, Tue, Wed, Thu, Sat) ---
+    return {
+      dayOfWeek,
+      isClosed: false,
+      slots: [{ start: "08:00", end: "22:00" }]
+    };
+  });
 };
 
 const seedProviders = async () => {
   try {
     await connectDB();
-    console.log("Seeding providers...");
+    console.log("🚀 Starting advanced seeding for 50 providers...");
 
     // Clear old data 
     await Provider.deleteMany({});
 
-    const providers = Array.from({ length: 20 }).map((_, index) => {
+    const providers = Array.from({ length: 50 }).map((_, index) => {
       const serviceType = serviceTypes[index % serviceTypes.length];
       const catalog = SERVICE_MAP[serviceType];
 
-      // Pick 2–4 services per provider
+      // Randomly pick 2–4 services
       const selectedServices = catalog
         .sort(() => 0.5 - Math.random())
         .slice(0, Math.floor(Math.random() * 3) + 2)
@@ -69,37 +105,35 @@ const seedProviders = async () => {
 
       const providerData: Partial<IProviderProfile> = {
         userId: new mongoose.Types.ObjectId(),
-        firstName: firstNames[index],
-        lastName: "Test",
-        profilePicture: `https://i.pravatar.cc/150?img=${index + 1}`,
+        firstName: firstNames[index % firstNames.length],
+        lastName: index % 2 === 0 ? "Expert" : "Services",
+        profilePicture: `https://i.pravatar.cc/150?u=${index}`,
 
-        isVerified: Math.random() > 0.4,
+        isVerified: Math.random() > 0.3,
         isAvailable: true,
-        homeServiceAvailable: Math.random() > 0.3,
+        homeServiceAvailable: Math.random() > 0.4,
 
         serviceType: serviceType as any,
         availabilityMode: Math.random() > 0.5 ? "instant" : "scheduled",
-        basePriceFrom: 2000 + Math.floor(Math.random() * 5000),
-        rating: Number((4.0 + Math.random() * 1.0).toFixed(1)),
+        basePriceFrom: 1500 + Math.floor(Math.random() * 3500),
+        rating: Number((3.5 + Math.random() * 1.5).toFixed(1)),
 
         services: selectedServices,
 
-        // Matches the new IProviderShopAddress interface
         shopAddress: {
-          address: `${index + 10} Professional Way, Tech Hub`,
-          city: "Jos",
-          state: "Plateau",
+          address: `${index + 100} Professional Plaza, Gwagwalada`,
+          city: "Gwagwalada",
+          state: "FCT",
           location: {
             type: "Point",
             coordinates: [
-              BASE_LNG + randomOffset(),
-              BASE_LAT + randomOffset(),
+              BASE_LNG + (Math.random() - 0.5) * 0.06, // Spread for 50 providers
+              BASE_LAT + (Math.random() - 0.5) * 0.06,
             ],
           },
         },
 
-        // Matches the IAvailabilityDay interface
-        availability: generateAvailability(),
+        availability: generateSpecificAvailability(serviceType),
       };
 
       return providerData;
@@ -107,6 +141,8 @@ const seedProviders = async () => {
 
     await Provider.insertMany(providers);
     console.log(`✅ Successfully seeded ${providers.length} providers.`);
+    console.log("📅 Logic applied: Barbers closed Fri/Sunday PM. Others closed Sunday/Open Fri.");
+
     process.exit(0);
   } catch (error) {
     console.error("❌ Seeding failed:", error);
