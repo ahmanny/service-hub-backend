@@ -130,7 +130,7 @@ export const setAddressDefault = (): RequestHandler => {
 export const getProviders = (): RequestHandler => {
     return async (req: Request, res: Response): Promise<void> => {
         try {
-            if (!req.currentUser) {
+            if (!req.consumerProfile) {
                 throw new UnauthorizedAccessException("Unauthorized");
             }
             const serviceType = String(req.query.serviceType);
@@ -149,7 +149,7 @@ export const getProviders = (): RequestHandler => {
 export const getProviderProfileForBooking = (): RequestHandler => {
     return async (req: Request, res: Response): Promise<void> => {
         try {
-            if (!req.currentUser) {
+            if (!req.consumerProfile) {
                 throw new UnauthorizedAccessException("Unauthorized");
             }
             const { providerId } = req.params

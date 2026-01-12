@@ -9,3 +9,4 @@ const authMiddleware = new AuthMiddleware();
 
 bookingRoutes.get('', authMiddleware.authorizeRole("consumer"), controller.getConsumerBookings())
 bookingRoutes.post('/request', authMiddleware.authorizeRole("consumer"), controller.bookProvider())
+bookingRoutes.get('/:bookingId', authMiddleware.authorizeRole("consumer"), controller.getBookingDetails());

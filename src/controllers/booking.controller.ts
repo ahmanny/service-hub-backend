@@ -2,6 +2,7 @@ import { Request, RequestHandler, Response } from "express";
 import UnauthorizedAccessException from "../exceptions/UnauthorizedAccessException";
 import { BookingService } from "../services/booking.service";
 import { error_handler, ok_handler } from "../utils/response_handler";
+import MissingParameterException from "../exceptions/MissingParameterException";
 
 
 
@@ -47,6 +48,29 @@ export const getConsumerBookings = (): RequestHandler => {
         }
     };
 };
+
+// get a booking details
+export const getBookingDetails = (): RequestHandler => {
+    return async (req: Request, res: Response): Promise<void> => {
+        try {
+            if (!req.consumerProfile) {
+                throw new UnauthorizedAccessException("Unauthorized");
+            }
+            const { bookingId } = req.params
+            if (!bookingId) {
+                throw new MissingParameterException("provider Id is missing")
+            }
+            const data = await BookingService.fetchBookingsDetails({
+                bookingId,
+                currentUserId: req.consumerProfile._id.toString(),
+                role: "consumer"
+            })
+            ok_handler(res, "successfull", data)
+        } catch (error) {
+            error_handler(error, req, res)
+        }
+    }
+}
 
 
 // get bookings for Provider
