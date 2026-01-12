@@ -179,13 +179,6 @@ class BookingServiceClass {
 
         if (!booking) throw new ResourceNotFoundException("Booking not found");
 
-        // Security Check
-        const isOwner = role === 'consumer'
-            ? booking.consumerId.toString() === currentUserId
-            : booking.providerId.toString() === currentUserId;
-
-        if (!isOwner) throw new ForbiddenAccessException("Unauthorized access to this booking");
-
         const provider: any = booking.providerId;
 
         return {
