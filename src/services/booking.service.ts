@@ -60,6 +60,7 @@ class BookingServiceClass {
         let finalLocation: any = { type: locationType };
 
         if (locationType === "home") {
+            console.log(geoAddress, textAddress)
             if (!geoAddress || !textAddress) {
                 throw new MissingParameterException("Please provide your home address");
             }
@@ -150,6 +151,7 @@ class BookingServiceClass {
             price: booking.price.total,
             scheduledAt: booking.scheduledAt,
             locationLabel: booking.location?.type === "shop" ? "In Shop Service" : "Home Service",
+            location: booking.location,
             status: booking.status,
         }));
 
