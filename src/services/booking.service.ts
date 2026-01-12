@@ -26,14 +26,25 @@ class BookingServiceClass {
 
         // verify the slot is still availaible 
         const bookingDate = new Date(scheduledAt);
+
+        // Create a 1-minute window to avoid millisecond/rounding mismatches
+        const startWindow = new Date(bookingDate);
+        startWindow.setSeconds(0, 0);
+
+        const endWindow = new Date(bookingDate);
+        endWindow.setSeconds(59, 999);
+
         const existingBooking = await Booking.findOne({
             providerId,
-            scheduledAt: bookingDate,
+            scheduledAt: {
+                $gte: startWindow,
+                $lte: endWindow
+            },
             status: { $in: ["pending", "confirmed"] }
         });
 
         if (existingBooking) {
-            throw new Exception("This time slot has just been taken. Please choose another.");
+            throw new Exception("This time slot has just been taken.");
         }
 
         const provider = await Provider.findById(providerId).lean();
