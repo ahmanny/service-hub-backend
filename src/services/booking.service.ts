@@ -149,7 +149,7 @@ class BookingServiceClass {
             serviceType: booking.serviceType,
             price: booking.price.total,
             scheduledAt: booking.scheduledAt,
-            locationLabel: booking.location?.type === "shop" ? "Come to shop" : "Home Service",
+            locationLabel: booking.location?.type === "shop" ? "In Shop Service" : "Home Service",
             status: booking.status,
         }));
 
