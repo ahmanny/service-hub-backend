@@ -136,7 +136,7 @@ class BookingServiceClass {
             _id: booking._id,
             serviceName: booking.serviceName,
             serviceType: booking.serviceType,
-            price: booking.price,
+            price: booking.price.total,
             scheduledAt: booking.scheduledAt,
             locationLabel: booking.location?.type === "shop" ? "Come to shop" : "Home Service",
             status: booking.status,
