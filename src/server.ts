@@ -8,6 +8,7 @@ import morgan from 'morgan';
 import routes from './routes';
 import type { TServerConfig } from './types';
 import multer from 'multer';
+import { initCronJobs } from './cron/booking.cron';
 
 
 const upload = multer()
@@ -51,6 +52,8 @@ export class InitServer {
 
         try {
             await this.database.connect(process.env.DB_URL!);
+
+            initCronJobs();
             // await AuthService.create_Superadmin();
             this.server.listen(port, () => console.log(`[server]: server is running at ${host}:${port}`));
         } catch (error) {

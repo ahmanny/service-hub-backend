@@ -26,6 +26,7 @@ class BookingServiceClass {
 
         // verify the slot is still availaible 
         const bookingDate = new Date(scheduledAt);
+        const deadline = this.calculateDeadline(bookingDate);
 
         // Create a 1-minute window to avoid millisecond/rounding mismatches
         const startWindow = new Date(bookingDate);
@@ -91,12 +92,14 @@ class BookingServiceClass {
             scheduledAt: bookingDate,
             location: finalLocation,
             note,
+            deadlineAt: deadline,
             status: "pending",
         });
 
         return {
             bookingId: booking._id,
             status: booking.status,
+            deadlineAt: deadline
         };
     }
 
@@ -214,6 +217,132 @@ class BookingServiceClass {
                 total: booking.price.total,
             },
         };
+    }
+    public async updateBookingStatus(payload: {
+        bookingId: string;
+        action: "accept" | "decline" | "cancel" | "reschedule";
+        reason?: string;
+        newScheduledAt?: string;
+        userId: string;
+    }) {
+        const { bookingId, action, reason, newScheduledAt, userId } = payload;
+
+        const booking = await Booking.findById(bookingId);
+        if (!booking) throw new ResourceNotFoundException("This booking record no longer exists.");
+
+        const isProvider = booking.providerId.toString() === userId;
+        const isConsumer = booking.consumerId.toString() === userId;
+
+        switch (action) {
+            case "accept":
+                if (!isProvider) {
+                    throw new ForbiddenAccessException("Only the service provider can accept this booking.");
+                }
+                if (booking.status !== "pending") {
+                    throw new Exception(`Cannot accept a booking that is already ${booking.status}.`);
+                }
+                booking.status = "accepted";
+                break;
+
+            case "decline":
+                if (!isProvider) {
+                    throw new ForbiddenAccessException("Only the service provider can decline this request.");
+                }
+                booking.status = "declined";
+                booking.note = reason || "Provider declined the request.";
+                break;
+
+            case "cancel":
+                if (!isProvider && !isConsumer) {
+                    throw new ForbiddenAccessException("You do not have permission to cancel this booking.");
+                }
+                if (booking.status === "completed") {
+                    throw new Exception("Cannot cancel a booking that is already marked as completed.");
+                }
+                booking.status = "cancelled";
+                booking.reason = reason || `Cancelled by ${isProvider ? 'provider' : 'user'}.`;
+                break;
+
+            case "reschedule":
+                if (!isConsumer) {
+                    throw new ForbiddenAccessException("Currently, only customers can initiate a reschedule.");
+                }
+                if (!newScheduledAt) throw new MissingParameterException("Please select a new date and time.");
+
+                const newDate = new Date(newScheduledAt);
+
+                // availability check
+                const isTaken = await Booking.findOne({
+                    providerId: booking.providerId,
+                    scheduledAt: {
+                        $gte: new Date(new Date(newDate).setSeconds(0, 0)),
+                        $lte: new Date(new Date(newDate).setSeconds(59, 999))
+                    },
+                    status: { $in: ["pending", "confirmed"] },
+                    _id: { $ne: booking._id }
+                });
+
+                if (isTaken) throw new Exception("The new time slot is already booked by someone else.");
+
+                booking.scheduledAt = newDate;
+                booking.status = "pending";
+                break;
+        }
+
+        await booking.save();
+        return booking;
+    }
+
+
+
+    public async cleanupExpiredBookings() {
+        const now = new Date();
+
+        // we are only updating pending bookings 
+        const result = await Booking.updateMany(
+            {
+                status: "pending",
+                deadlineAt: { $lt: now }
+            },
+            {
+                $set: {
+                    status: "expired",
+                    reason: "System: Request expired due to provider inactivity."
+                }
+            }
+        );
+
+        if (result.modifiedCount > 0) {
+            console.log(`[CRON] Successfully expired ${result.modifiedCount} bookings at ${now.toISOString()}`);
+            // TODO: Later, trigger push notifications here for the impacted consumers
+        }
+
+        return result.modifiedCount;
+    }
+
+
+
+
+
+
+    // Private functions
+    private calculateDeadline(scheduledAt: Date): Date {
+        const now = new Date();
+        const diffInHours = (scheduledAt.getTime() - now.getTime()) / (1000 * 60 * 60);
+
+        let minutesToAdd: number;
+
+        if (diffInHours <= 2) {
+            minutesToAdd = 15; // Extremely urgent
+        } else if (diffInHours <= 24) {
+            minutesToAdd = 30; // Same day
+        } else if (diffInHours <= 48) {
+            minutesToAdd = 360; // Next day (6 hours)
+        } else {
+            minutesToAdd = 1440; // 2+ days away (24 hours)
+        }
+
+        return new Date(now.getTime() + minutesToAdd * 60000);
     }
 
 }
