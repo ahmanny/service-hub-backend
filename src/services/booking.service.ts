@@ -126,7 +126,7 @@ class BookingServiceClass {
                 // Anything in the past OR specifically marked as finished/cancelled
                 query.$or = [
                     { scheduledAt: { $lt: now } },
-                    { status: { $in: ["completed", "cancelled", "declined"] } }
+                    { status: { $in: ["completed", "cancelled", "declined", "expired"] } }
                 ];
                 break;
             case "pending":
