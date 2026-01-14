@@ -3,7 +3,7 @@ import { BookingService } from "../services/booking.service";
 
 export const initCronJobs = () => {
     // Run every 10 minutes 
-    cron.schedule("*/10 * * * *", async () => {
+    cron.schedule("*/2 * * * *", async () => {
         try {
             console.log("⏱️  Running scheduled booking expiration check...");
             await BookingService.cleanupExpiredBookings();
