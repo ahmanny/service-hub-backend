@@ -194,6 +194,9 @@ class BookingServiceClass {
             serviceType: booking.serviceType,
             status: booking.status,
             scheduledAt: booking.scheduledAt.toISOString(),
+            deadlineAt: booking.deadlineAt?.toISOString(),
+            note: booking?.note,
+            reason?: booking?.reason,
             createdAt: booking.createdAt?.toISOString(),
             updatedAt: booking.updatedAt?.toISOString(),
 
@@ -292,9 +295,6 @@ class BookingServiceClass {
         await booking.save();
         return booking;
     }
-
-
-
     public async cleanupExpiredBookings() {
         const now = new Date();
 
@@ -319,8 +319,6 @@ class BookingServiceClass {
 
         return result.modifiedCount;
     }
-
-
 
 
 
