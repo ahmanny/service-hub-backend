@@ -299,10 +299,33 @@ class BookingServiceClass {
     public async cleanupExpiredBookings() {
         const now = new Date();
 
-        // DEBUG LOG: See what the server is looking for
-        const totalPending = await Booking.countDocuments({ status: "pending" });
-        console.log(`[CRON DEBUG] Checking ${totalPending} pending bookings. Server time: ${now.toISOString()}`);
+        // 1. Fetch all pending bookings to see what we are dealing with
+        const pendingBookings = await Booking.find({ status: "pending" })
+            .select("deadlineAt status _id")
+            .lean();
 
+        console.log(`[CRON DEBUG] Found ${pendingBookings.length} total pending bookings.`);
+        console.log(`[CRON DEBUG] Current Server Time (UTC): ${now.toISOString()}`);
+
+        // Inside your cleanupExpiredBookings method
+        if (pendingBookings.length > 0) {
+            pendingBookings.forEach((b, index) => {
+                // Fix: Use a fallback or check if deadlineAt exists
+                if (!b.deadlineAt) {
+                    console.log(`   -> [${index + 1}] ID: ${b._id} | ⚠️ No deadline set!`);
+                    return;
+                }
+
+                const deadline = new Date(b.deadlineAt); // TS is now happy because we checked it
+                const isExpired = deadline < now;
+
+                console.log(
+                    `   -> [${index + 1}] ID: ${b._id} | Deadline: ${deadline.toISOString()} | Overdue: ${isExpired}`
+                );
+            });
+        }
+
+        // 2. Perform the update
         const result = await Booking.updateMany(
             {
                 status: "pending",
@@ -311,12 +334,15 @@ class BookingServiceClass {
             {
                 $set: {
                     status: "expired",
-                    reason: "System: Request expired due to provider inactivity." // Check if your schema uses 'reason' or 'note'
+                    reason: "System: Request expired due to provider inactivity."
                 }
             }
         );
 
-        console.log(`[CRON] Match Count: ${result.matchedCount}, Modified Count: ${result.modifiedCount}`);
+        if (result.modifiedCount > 0) {
+            console.log(`[CRON] ✅ Successfully expired ${result.modifiedCount} bookings.`);
+        }
+
         return result.modifiedCount;
     }
 
