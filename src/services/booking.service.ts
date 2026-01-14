@@ -98,6 +98,7 @@ class BookingServiceClass {
 
         return {
             bookingId: booking._id,
+            firstName: provider.firstName,
             status: booking.status,
             deadlineAt: deadline
         };
