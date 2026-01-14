@@ -127,6 +127,7 @@ export const getRescheduleSchedule = (): RequestHandler => {
 
             ok_handler(res, "Provider schedule retrieved", data);
         } catch (error) {
+            console.log(error)
             error_handler(error, req, res);
         }
     };
