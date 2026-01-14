@@ -297,6 +297,46 @@ class BookingServiceClass {
         await booking.save();
         return booking;
     }
+
+    public async getRescheduleData(bookingId: string, userId: string) {
+        const booking = await Booking.findById(bookingId)
+            .populate({
+                path: 'providerId',
+                select: 'availability firstName serviceType shopAddress'
+            });
+
+        if (!booking) {
+            throw new ResourceNotFoundException("This booking no longer exists.");
+        }
+
+        // Security check
+        if (booking.consumerId.toString() !== userId) {
+            throw new ForbiddenAccessException("Unauthorized access.");
+        }
+
+        // Fetch live booked slots
+        const activeBookings = await Booking.find({
+            providerId: booking.providerId._id,
+            status: { $in: ["pending", "accepted"] },
+            scheduledAt: { $gte: new Date() }
+        }).select("scheduledAt").lean();
+
+        const bookedSlots = activeBookings.map(b => {
+            const d = new Date(b.scheduledAt);
+            return {
+                date: d.toISOString().split('T')[0],
+                startTime: `${d.getHours().toString().padStart(2, '0')}:00`
+            };
+        });
+
+        // Convert Mongoose Doc to plain object before spreading
+        const providerData = (booking.providerId as any).toObject();
+
+        return {
+            ...providerData,
+            bookedSlots
+        };
+    }
     public async cleanupExpiredBookings() {
         const now = new Date();
 
@@ -346,6 +386,7 @@ class BookingServiceClass {
 
         return result.modifiedCount;
     }
+
 
 
 

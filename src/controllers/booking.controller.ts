@@ -72,6 +72,66 @@ export const getBookingDetails = (): RequestHandler => {
     }
 }
 
+export const handleBookingAction = (): RequestHandler => {
+    return async (req: Request, res: Response): Promise<void> => {
+        try {
+            const { bookingId } = req.params;
+            const { action, reason, newScheduledAt } = req.body;
+
+            // Identify who is calling based on your middleware
+            const userId = req.consumerProfile?._id || req.providerProfile?._id;
+
+            if (!userId) {
+                throw new UnauthorizedAccessException("Identity not found");
+            }
+
+            if (!bookingId) {
+                throw new MissingParameterException("Booking ID is required");
+            }
+
+            const data = await BookingService.updateBookingStatus({
+                bookingId,
+                action,
+                reason,
+                newScheduledAt,
+                userId: userId.toString(),
+            });
+
+            // Dynamic message based on action
+            const messages = {
+                accept: "Booking accepted successfully",
+                decline: "Booking declined",
+                cancel: "Booking cancelled successfully",
+                reschedule: "Reschedule request sent",
+            };
+
+            ok_handler(res, messages[action as keyof typeof messages] || "Success", data);
+        } catch (error) {
+            error_handler(error, req, res);
+        }
+    };
+};
+
+export const getRescheduleSchedule = (): RequestHandler => {
+    return async (req: Request, res: Response): Promise<void> => {
+        try {
+            const { bookingId } = req.params;
+            const userId = req.consumerProfile?._id;
+
+            if (!userId) throw new UnauthorizedAccessException("Consumer profile not found");
+            if (!bookingId) {
+                throw new MissingParameterException("Booking ID is required");
+            }
+
+            const data = await BookingService.getRescheduleData(bookingId, userId.toString());
+
+            ok_handler(res, "Provider schedule retrieved", data);
+        } catch (error) {
+            error_handler(error, req, res);
+        }
+    };
+};
+
 
 // get bookings for Provider
 // export const getProviderBookings = (): RequestHandler => {

@@ -24,29 +24,34 @@ export class AuthMiddleware {
         }
     }
 
-    //  Role Authorization
-    public authorizeRole(requiredRole: 'consumer' | 'provider') {
+    public authorizeRole(roles: 'consumer' | 'provider' | Array<'consumer' | 'provider'>) {
         return async (req: Request, res: Response, next: NextFunction) => {
             try {
-
                 if (!req.currentUser || !req.appType) {
                     throw new AuthenticationTokenException("Unauthorized");
                 }
 
-                if (req.appType !== requiredRole) {
-                    throw new UnauthorizedAccessException(`Access denied. This is a ${requiredRole} only route.`);
+                // Convert to array if it's a single string for uniform checking
+                const allowedRoles = Array.isArray(roles) ? roles : [roles];
+
+                // 1. Check if the user's appType is in the allowed list
+                if (!allowedRoles.includes(req.appType as any)) {
+                    throw new UnauthorizedAccessException(
+                        `Access denied. Requires one of these roles: ${allowedRoles.join(', ')}`
+                    );
                 }
 
-                // Attach the specific profile for convenience in controllers
-                if (requiredRole === 'consumer') {
+                // 2. Attach the specific profile based on the CURRENT appType
+                // This is cleaner because we only fetch what is actually being used
+                if (req.appType === 'consumer') {
                     const profile = await getConsumerByUserId(req.currentUser._id);
-                    if (!profile) {
-                        throw new UnauthorizedAccessException("Access denied. You dont have an active profile")
-                    }
+                    if (!profile) throw new UnauthorizedAccessException("Consumer profile not found");
                     req.consumerProfile = profile;
                 }
-                if (requiredRole === 'provider') {
+
+                if (req.appType === 'provider') {
                     const profile = await Provider.findOne({ userId: req.currentUser._id });
+                    if (!profile) throw new UnauthorizedAccessException("Provider profile not found");
                     req.providerProfile = profile;
                 }
 
