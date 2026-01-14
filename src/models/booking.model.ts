@@ -34,7 +34,9 @@ export interface IBooking {
     }
 
     note?: string;
-    reason?: string;
+    declineReason?: string;
+    expiredMessage?: string;
+    cancelMessage?: string;
 
     status: "pending" | "accepted" | "declined" | "completed" | "cancelled" | "expired";
     createdAt?: Date;
@@ -116,7 +118,15 @@ const BookingSchema = new Schema<IBooking>(
             type: String,
             trim: true,
         },
-        reason: {
+        declineReason: {
+            type: String,
+            trim: true,
+        },
+        expiredMessage: {
+            type: String,
+            trim: true,
+        },
+        cancelMessage: {
             type: String,
             trim: true,
         },

@@ -197,7 +197,8 @@ class BookingServiceClass {
             scheduledAt: booking.scheduledAt.toISOString(),
             deadlineAt: booking.deadlineAt?.toISOString(),
             note: booking?.note,
-            reason: booking?.reason,
+            declineReason: booking?.declineReason,
+            expiredMessage: booking?.expiredMessage,
             createdAt: booking.createdAt?.toISOString(),
             updatedAt: booking.updatedAt?.toISOString(),
 
@@ -253,7 +254,7 @@ class BookingServiceClass {
                     throw new ForbiddenAccessException("Only the service provider can decline this request.");
                 }
                 booking.status = "declined";
-                booking.note = reason || "Provider declined the request.";
+                booking.declineReason = reason || "Provider declined the request.";
                 break;
 
             case "cancel":
@@ -264,7 +265,7 @@ class BookingServiceClass {
                     throw new Exception("Cannot cancel a booking that is already marked as completed.");
                 }
                 booking.status = "cancelled";
-                booking.reason = reason || `Cancelled by ${isProvider ? 'provider' : 'user'}.`;
+                booking.cancelMessage = reason || `Cancelled by ${isProvider ? 'provider' : 'user'}.`;
                 break;
 
             case "reschedule":
@@ -334,7 +335,7 @@ class BookingServiceClass {
             {
                 $set: {
                     status: "expired",
-                    reason: "System: Request expired due to provider inactivity."
+                    expiredMessage: "System: Request expired due to provider inactivity."
                 }
             }
         );
