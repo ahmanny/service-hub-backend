@@ -299,7 +299,10 @@ class BookingServiceClass {
     public async cleanupExpiredBookings() {
         const now = new Date();
 
-        // we are only updating pending bookings 
+        // DEBUG LOG: See what the server is looking for
+        const totalPending = await Booking.countDocuments({ status: "pending" });
+        console.log(`[CRON DEBUG] Checking ${totalPending} pending bookings. Server time: ${now.toISOString()}`);
+
         const result = await Booking.updateMany(
             {
                 status: "pending",
@@ -308,16 +311,12 @@ class BookingServiceClass {
             {
                 $set: {
                     status: "expired",
-                    reason: "System: Request expired due to provider inactivity."
+                    note: "System: Request expired due to provider inactivity." // Check if your schema uses 'reason' or 'note'
                 }
             }
         );
 
-        if (result.modifiedCount > 0) {
-            console.log(`[CRON] Successfully expired ${result.modifiedCount} bookings at ${now.toISOString()}`);
-            // TODO: Later, trigger push notifications here for the impacted consumers
-        }
-
+        console.log(`[CRON] Match Count: ${result.matchedCount}, Modified Count: ${result.modifiedCount}`);
         return result.modifiedCount;
     }
 
