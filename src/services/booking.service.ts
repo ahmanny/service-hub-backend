@@ -196,7 +196,7 @@ class BookingServiceClass {
             scheduledAt: booking.scheduledAt.toISOString(),
             deadlineAt: booking.deadlineAt?.toISOString(),
             note: booking?.note,
-            reason?: booking?.reason,
+            reason: booking?.reason,
             createdAt: booking.createdAt?.toISOString(),
             updatedAt: booking.updatedAt?.toISOString(),
 
