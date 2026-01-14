@@ -311,7 +311,7 @@ class BookingServiceClass {
             {
                 $set: {
                     status: "expired",
-                    note: "System: Request expired due to provider inactivity." // Check if your schema uses 'reason' or 'note'
+                    reason: "System: Request expired due to provider inactivity." // Check if your schema uses 'reason' or 'note'
                 }
             }
         );
