@@ -19,7 +19,7 @@ routes.use('/auth', authRoutes);
 routes.use(Middleware.validateToken)
 routes.use('/consumer', consumerRoutes);
 routes.use('/provider', providerRoutes);
-routes.use('/booking', bookingRoutes);
+routes.use('/bookings', bookingRoutes);
 routes.use('/admin', adminRoutes);
 
 export default routes;
