@@ -41,7 +41,7 @@ class BookingServiceClass {
                 $gte: startWindow,
                 $lte: endWindow
             },
-            status: { $in: ["pending", "confirmed"] }
+            status: { $in: ["pending", "accepted", "confirmed"] }
         });
 
         if (existingBooking) {
@@ -272,25 +272,36 @@ class BookingServiceClass {
                 if (!isConsumer) {
                     throw new ForbiddenAccessException("Currently, only customers can initiate a reschedule.");
                 }
-                if (!newScheduledAt) throw new MissingParameterException("Please select a new date and time.");
+                if (!newScheduledAt) {
+                    throw new MissingParameterException("Please select a new date and time.");
+                }
 
                 const newDate = new Date(newScheduledAt);
 
-                // availability check
+                // Availability check
                 const isTaken = await Booking.findOne({
                     providerId: booking.providerId,
                     scheduledAt: {
                         $gte: new Date(new Date(newDate).setSeconds(0, 0)),
                         $lte: new Date(new Date(newDate).setSeconds(59, 999))
                     },
-                    status: { $in: ["pending", "confirmed"] },
+                    status: { $in: ["pending", "accepted", "confirmed"] }, // Added "accepted" just in case
                     _id: { $ne: booking._id }
                 });
 
-                if (isTaken) throw new Exception("The new time slot is already booked by someone else.");
+                if (isTaken) {
+                    throw new Exception("The new time slot is already booked by someone else.");
+                }
 
+                // Update the booking details
                 booking.scheduledAt = newDate;
+
+                // Reset the status to pending so the provider has to accept again
                 booking.status = "pending";
+
+                // Recalculate and update the deadline
+                booking.deadlineAt = this.calculateDeadline(newDate);
+
                 break;
         }
 
