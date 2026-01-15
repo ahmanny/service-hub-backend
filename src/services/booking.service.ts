@@ -197,10 +197,10 @@ class BookingServiceClass {
 
             scheduledAt: booking.scheduledAt.toISOString(),
             deadlineAt: booking.deadlineAt?.toISOString(),
-            cancelledAt?: booking.cancelledAt?.toISOString(),
-            declinedAt?: booking.declinedAt?.toISOString(),
-            acceptedAt?: booking.acceptedAt?.toISOString(),
-            rescheduledAt?:booking.rescheduledAt?.toISOString(),
+            cancelledAt: booking.cancelledAt?.toISOString(),
+            declinedAt: booking.declinedAt?.toISOString(),
+            acceptedAt: booking.acceptedAt?.toISOString(),
+            rescheduledAt:booking.rescheduledAt?.toISOString(),
         
             note: booking?.note,
             declineReason: booking?.declineReason,
@@ -285,7 +285,7 @@ class BookingServiceClass {
                     throw new MissingParameterException("Please select a new date and time.");
                 }
 
-                const newDate = new Date(newScheduledAt); \
+                const newDate = new Date(newScheduledAt);
                 const startWindow = new Date(newDate);
                 startWindow.setSeconds(0, 0);
 
