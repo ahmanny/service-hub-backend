@@ -194,8 +194,14 @@ class BookingServiceClass {
             serviceName: booking.serviceName,
             serviceType: booking.serviceType,
             status: booking.status,
+
             scheduledAt: booking.scheduledAt.toISOString(),
             deadlineAt: booking.deadlineAt?.toISOString(),
+            cancelledAt?: booking.cancelledAt?.toISOString(),
+            declinedAt?: booking.declinedAt?.toISOString(),
+            acceptedAt?: booking.acceptedAt?.toISOString(),
+            rescheduledAt?:booking.rescheduledAt?.toISOString(),
+        
             note: booking?.note,
             declineReason: booking?.declineReason,
             expiredMessage: booking?.expiredMessage,
@@ -247,6 +253,7 @@ class BookingServiceClass {
                     throw new Exception(`Cannot accept a booking that is already ${booking.status}.`);
                 }
                 booking.status = "accepted";
+                booking.acceptedAt = new Date();
                 break;
 
             case "decline":
@@ -254,6 +261,7 @@ class BookingServiceClass {
                     throw new ForbiddenAccessException("Only the service provider can decline this request.");
                 }
                 booking.status = "declined";
+                booking.declinedAt = new Date();
                 booking.declineReason = reason || "Provider declined the request.";
                 break;
 
@@ -265,6 +273,7 @@ class BookingServiceClass {
                     throw new Exception("Cannot cancel a booking that is already marked as completed.");
                 }
                 booking.status = "cancelled";
+                booking.cancelledAt = new Date();
                 booking.cancelMessage = reason || `Cancelled by ${isProvider ? 'provider' : 'user'}.`;
                 break;
 
@@ -276,16 +285,20 @@ class BookingServiceClass {
                     throw new MissingParameterException("Please select a new date and time.");
                 }
 
-                const newDate = new Date(newScheduledAt);
+                const newDate = new Date(newScheduledAt); \
+                const startWindow = new Date(newDate);
+                startWindow.setSeconds(0, 0);
 
-                // Availability check
+                const endWindow = new Date(newDate);
+                endWindow.setSeconds(59, 999);
+
                 const isTaken = await Booking.findOne({
                     providerId: booking.providerId,
                     scheduledAt: {
-                        $gte: new Date(new Date(newDate).setSeconds(0, 0)),
-                        $lte: new Date(new Date(newDate).setSeconds(59, 999))
+                        $gte: startWindow,
+                        $lte: endWindow
                     },
-                    status: { $in: ["pending", "accepted", "confirmed"] }, // Added "accepted" just in case
+                    status: { $in: ["pending", "accepted", "confirmed"] },
                     _id: { $ne: booking._id }
                 });
 
@@ -295,11 +308,10 @@ class BookingServiceClass {
 
                 // Update the booking details
                 booking.scheduledAt = newDate;
+                booking.rescheduledAt = new Date();
 
-                // Reset the status to pending so the provider has to accept again
                 booking.status = "pending";
 
-                // Recalculate and update the deadline
                 booking.deadlineAt = this.calculateDeadline(newDate);
 
                 break;
