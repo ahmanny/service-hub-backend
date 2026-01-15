@@ -115,6 +115,7 @@ export const handleBookingAction = (): RequestHandler => {
 export const getRescheduleSchedule = (): RequestHandler => {
     return async (req: Request, res: Response): Promise<void> => {
         try {
+            console.log("am here so get me reschedule data")
             const { bookingId } = req.params;
             const userId = req.consumerProfile?._id;
 
