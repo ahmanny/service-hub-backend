@@ -75,6 +75,7 @@ export const getBookingDetails = (): RequestHandler => {
 export const handleBookingAction = (): RequestHandler => {
     return async (req: Request, res: Response): Promise<void> => {
         try {
+            console.log("am here to perform an action")
             const { bookingId } = req.params;
             const { action, reason, newScheduledAt } = req.body;
 
