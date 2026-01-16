@@ -139,6 +139,7 @@ class AuthServiceClass {
     // verify otp function
     public async verifyOtp(payload: { phone: string, otp: string, appType: AppRole }) {
         const { phone, otp, appType } = payload;
+        console.log(payload)
         if (!phone || !otp || !appType) throw new Exception("Phone, OTP, and App Type are required");
 
         const now = new Date();
