@@ -2,6 +2,7 @@ import { Request, RequestHandler, Response } from "express"
 import { error_handler, ok_handler } from "../utils/response_handler"
 import { AuthService } from "../services/auth.service"
 import MissingParameterException from "../exceptions/MissingParameterException"
+import { AppRole } from "../utils"
 
 
 
@@ -17,16 +18,22 @@ export const sendOtp = (): RequestHandler => {
     }
 }
 // verify login/sign up otp controller
-export const verifyOtp = (): RequestHandler => {
+export const verifyOtp = (role: AppRole): RequestHandler => {
     return async (req: Request, res: Response): Promise<void> => {
         try {
-            const data = await AuthService.verifyOtp(req.body)
-            ok_handler(res, "otp Verified", data)
+            const { tokens, hasProfile, profile } = await AuthService.verifyOtp({
+                ...req.body,
+                appType: role
+            });
+            const data = { tokens, hasProfile, profile }
+
+            ok_handler(res, "OTP Verified", data);
         } catch (error) {
-            error_handler(error, req, res)
+            error_handler(error, req, res);
         }
     }
 }
+
 // resend controller
 export const resendOtp = (): RequestHandler => {
     return async (req: Request, res: Response): Promise<void> => {
@@ -49,6 +56,7 @@ export const getOtpCooldown = (): RequestHandler => {
         }
     }
 }
+
 
 // refresh session 
 export const refreshSession = (): RequestHandler => {
