@@ -11,6 +11,7 @@ import { RefreshToken } from "../models/refresh-token.model";
 import ResourceNotFoundException from "../exceptions/ResourceNotFoundException";
 import MissingParameterException from "../exceptions/MissingParameterException";
 import { ConsumerService } from "./consumer.service";
+import { ProviderService } from "./provider.service";
 
 
 
@@ -134,6 +135,7 @@ class AuthServiceClass {
 
         return { message: "OTP resent successfully", cooldown };
     }
+
     // verify otp function
     public async verifyOtp(payload: { phone: string, otp: string, appType: AppRole }) {
         const { phone, otp, appType } = payload;
@@ -161,10 +163,8 @@ class AuthServiceClass {
             throw new Exception("Invalid OTP. Please try again.");
         }
 
-        // --- IDENTITY LOGIC START ---
         const phoneField = appType === 'consumer' ? 'consumerPhone' : 'providerPhone';
 
-        //  Check if user exists with THIS specific role's phone
         let user = await User.findOne({ [phoneField]: phone });
 
 
@@ -179,7 +179,6 @@ class AuthServiceClass {
                 if (!user.activeRoles.includes(appType)) user.activeRoles.push(appType);
                 await user.save();
             } else {
-                //  Brand new user for the whole system
                 user = await User.create({
                     [phoneField]: phone,
                     activeRoles: [appType]
@@ -188,16 +187,16 @@ class AuthServiceClass {
         }
 
         const tokens = await generateTokens(user, appType);
-        // success ....delete session
         await session.deleteOne();
 
         // Fetch the profile for this specific app
         let profileData;
         if (appType === 'consumer') {
             profileData = await ConsumerService.fetchProfile(user._id);
-        } else {
-            // profileData = await ProviderService.fetchProfile(user._id);
+        } else if (appType === 'provider') {
+            profileData = await ProviderService.fetchProfile(user._id);
         }
+        // TODO: add admin profile fetching later 
 
         return {
             tokens,
