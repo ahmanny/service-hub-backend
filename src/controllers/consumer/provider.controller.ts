@@ -12,7 +12,7 @@ import { Request, RequestHandler, Response } from "express";
 export const verifyOtp = (): RequestHandler => {
     return async (req: Request, res: Response): Promise<void> => {
         try {
-            const { tokens, hasProfile, profile } = await AuthService.verifyOtp({ appType: "provider", ...req.body })
+            const { tokens, hasProfile, profile } = await AuthService.verifyOtp({ ...req.body, appType: "provider" })
             const data = { tokens, hasProfile, profile }
             ok_handler(res, "otp Verified", data)
         } catch (error) {
