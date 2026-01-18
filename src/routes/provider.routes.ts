@@ -1,10 +1,30 @@
 import { Router } from 'express';
-import * as SearchController from '../controllers/consumer/search.controller';
+import * as controller from '../controllers/consumer/provider.controller';
 import { AuthMiddleware } from '../middlewares';
 
 export const providerRoutes = Router();
 const authMiddleware = new AuthMiddleware();
 
+
+// Initial profile setup 
+import multer from 'multer';
+const upload = multer({ storage: multer.memoryStorage() });
+
+providerRoutes.patch(
+    '/complete-profile',
+    upload.fields([
+        { name: 'profilePicture', maxCount: 1 },
+        { name: 'idImage', maxCount: 1 },
+        { name: 'selfieImage', maxCount: 1 }
+    ]),
+    controller.completeProfile()
+);
+
+
+// Middleware: ensure user is logged in AND has a provider profile context
+providerRoutes.use(authMiddleware.authorizeRole("provider"));
+
+providerRoutes.get('/me', controller.getProfile());
 
 
 // providerRoutes.get('/search', controller.getProfile());

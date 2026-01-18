@@ -1,7 +1,7 @@
 import mongoose, { Schema, Types, model } from "mongoose";
-import { GeoAddress, GeoPointSchema } from "./schemas/geoPoint.schema";
 import { ServiceType } from "../types/service.types";
 
+// Types
 export interface Services {
     name: string;
     value: string;
@@ -18,32 +18,51 @@ export interface IProviderShopAddress {
     };
 }
 
-//  Availability Interface 
 export interface IAvailabilityDay {
-    dayOfWeek: number; // 0 (Sunday) to 6 (Saturday)
-    slots: { start: string; end: string }[]; //  { start: "09:00", end: "17:00" }
+    dayOfWeek: number;
+    slots: { start: string; end: string }[];
     isClosed: boolean;
 }
 
+// Interface
 export interface IProviderProfile {
     userId: Types.ObjectId;
-    firstName?: string;
-    lastName?: string;
+    firstName: string;
+    lastName: string;
+    email: string;
     profilePicture?: string;
+    bio?: string;
+
     isAvailable: boolean;
     availabilityMode: "instant" | "scheduled";
     serviceType: ServiceType;
     basePriceFrom: number;
-    homeServiceAvailable: boolean;
     services: Services[];
+
+    homeServiceAvailable: boolean;
+    offersShopVisit: boolean;
+    serviceArea?: {
+        address: string;
+        location: {
+            type: 'Point';
+            coordinates: [number, number];
+        };
+        radiusKm: number;
+    };
+
     rating: number;
     isVerified: boolean;
+    verification?: {
+        idUri: string;
+        selfieUri: string;
+    };
+
+    avgServiceTime: number;
     shopAddress?: IProviderShopAddress;
     availability: IAvailabilityDay[];
 }
 
-//  Schemas 
-
+// Schemas
 const ProviderShopAddressSchema = new Schema<IProviderShopAddress>(
     {
         address: { type: String, required: true },
@@ -57,23 +76,12 @@ const ProviderShopAddressSchema = new Schema<IProviderShopAddress>(
     { _id: false }
 );
 
+
 const ServiceSchema = new Schema<Services>(
     {
         name: { type: String, required: true },
         value: { type: String, required: true },
         price: { type: Number, required: true, min: 0 },
-    },
-    { _id: false }
-);
-
-const AvailabilitySchema = new Schema<IAvailabilityDay>(
-    {
-        dayOfWeek: { type: Number, required: true }, // 0-6
-        slots: [{
-            start: String,
-            end: String
-        }],
-        isClosed: { type: Boolean, default: false }
     },
     { _id: false }
 );
@@ -86,9 +94,11 @@ const ProviderSchema = new Schema<IProviderProfile>(
             unique: true,
             index: true,
         },
-        firstName: { type: String, trim: true },
-        lastName: { type: String, trim: true },
+        firstName: { type: String, required: true, trim: true },
+        lastName: { type: String, required: true, trim: true },
         profilePicture: { type: String },
+        bio: { type: String, trim: true },
+
         isAvailable: { type: Boolean, default: true, index: true },
         availabilityMode: {
             type: String,
@@ -96,24 +106,44 @@ const ProviderSchema = new Schema<IProviderProfile>(
             default: "scheduled",
             required: true,
         },
-        serviceType: {
-            type: String,
-            required: true,
-            index: true,
-        },
+        serviceType: { type: String, required: true, index: true },
         basePriceFrom: { type: Number, required: true, min: 0 },
         services: { type: [ServiceSchema], default: [] },
+
+        homeServiceAvailable: { type: Boolean, default: false },
+        offersShopVisit: { type: Boolean, default: true },
+
+        // Geospatial Service Area
+        serviceArea: {
+            address: String,
+            location: {
+                type: { type: String, enum: ['Point'], default: 'Point' },
+                coordinates: [Number] // [long, lat]
+            },
+            radiusKm: { type: Number, default: 5 }
+        },
+
         rating: { type: Number, default: 0, min: 0, max: 5 },
         isVerified: { type: Boolean, default: false, index: true },
-        homeServiceAvailable: { type: Boolean, default: false },
+        verification: {
+            idUri: String,
+            selfieUri: String,
+        },
+
+        avgServiceTime: { type: Number, default: 60 }, // Default 60 mins
         shopAddress: ProviderShopAddressSchema,
-        availability: { type: [AvailabilitySchema], default: [] }
+        availability: [{
+            dayOfWeek: Number,
+            slots: [{ start: String, end: String }],
+            isClosed: { type: Boolean, default: false }
+        }]
     },
     { timestamps: true }
 );
 
 // Indexes
 ProviderSchema.index({ "shopAddress.location": "2dsphere" });
-ProviderSchema.index({ serviceType: 1, isAvailable: 1 });
+ProviderSchema.index({ "serviceArea.location": "2dsphere" });
+ProviderSchema.index({ serviceType: 1, isAvailable: 1, isVerified: 1 });
 
 export const Provider = model<IProviderProfile>("Provider", ProviderSchema);
