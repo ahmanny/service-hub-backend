@@ -84,7 +84,7 @@ const generateSpecificAvailability = (serviceType: string) => {
 const seedProviders = async () => {
   try {
     await connectDB();
-    console.log("🚀 Starting advanced seeding for 50 providers...");
+    console.log("Starting advanced seeding for 50 providers...");
 
     // Clear old data 
     await Provider.deleteMany({});
@@ -109,7 +109,7 @@ const seedProviders = async () => {
         lastName: index % 2 === 0 ? "Expert" : "Services",
         profilePicture: `https://i.pravatar.cc/150?u=${index}`,
 
-        isVerified: Math.random() > 0.3,
+        status: Math.random() > 0.3 ? "pending" : "approved",
         isAvailable: true,
         homeServiceAvailable: Math.random() > 0.4,
 
