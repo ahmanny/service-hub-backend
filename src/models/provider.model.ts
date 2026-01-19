@@ -2,6 +2,8 @@ import mongoose, { Schema, Types, model } from "mongoose";
 import { ServiceType } from "../types/service.types";
 
 // Types
+export type ProfileStatus = 'pending' | 'approved' | 'rejected';
+
 export interface Services {
     name: string;
     value: string;
@@ -51,7 +53,7 @@ export interface IProviderProfile {
     };
 
     rating: number;
-    isVerified: boolean;
+    status: ProfileStatus
     verification?: {
         idUri: string;
         selfieUri: string;
@@ -124,7 +126,12 @@ const ProviderSchema = new Schema<IProviderProfile>(
         },
 
         rating: { type: Number, default: 0, min: 0, max: 5 },
-        isVerified: { type: Boolean, default: false, index: true },
+        status: {
+            type: String,
+            enum: ['pending', 'approved', 'rejected'],
+            default: 'pending',
+            index: true
+        },
         verification: {
             idUri: String,
             selfieUri: String,
@@ -144,6 +151,6 @@ const ProviderSchema = new Schema<IProviderProfile>(
 // Indexes
 ProviderSchema.index({ "shopAddress.location": "2dsphere" });
 ProviderSchema.index({ "serviceArea.location": "2dsphere" });
-ProviderSchema.index({ serviceType: 1, isAvailable: 1, isVerified: 1 });
+ProviderSchema.index({ serviceType: 1, isAvailable: 1, status: 1 });
 
 export const Provider = model<IProviderProfile>("Provider", ProviderSchema);

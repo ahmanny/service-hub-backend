@@ -125,8 +125,8 @@ class ProviderServiceClass {
             availability,
             avgServiceTime,
             verification,
-            isVerified: false, // Always false until admin reviews and verifies the user
-            isAvailable: true,
+            status: "pending",
+            isAvailable: false,
             rating: 0
         };
 
