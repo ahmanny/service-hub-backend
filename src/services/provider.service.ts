@@ -144,6 +144,12 @@ class ProviderServiceClass {
      * get provider dashboard data
      */
     public async fetchDashboardData(providerId: string) {
+
+        const profile = await Provider.findById(providerId);
+        if (!profile) {
+            throw new ResourceNotFoundException("Provider profile not found");
+        }
+
         const today = new Date();
         const start = startOfDay(today);
         const end = endOfDay(today);
@@ -218,6 +224,21 @@ class ProviderServiceClass {
             }
         };
 
+    }
+
+    public async toggleAvailability(providerId: string) {
+        const provider = await Provider.findById(providerId);
+        if (!provider) {
+            throw new ResourceNotFoundException("Provider profile not found");
+        }
+
+        provider.isAvailable = !provider.isAvailable;
+
+        await provider.save();
+        return {
+            message: `You are now ${provider.isAvailable ? 'Online' : 'Offline'}`,
+            isAvailable: provider.isAvailable
+        }
     }
 
     /**

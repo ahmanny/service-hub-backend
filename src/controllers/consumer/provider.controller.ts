@@ -108,3 +108,18 @@ export const getDashboardData = (): RequestHandler => {
         }
     }
 }
+
+
+export const toggleAvailability = (): RequestHandler => {
+    return async (req: Request, res: Response): Promise<void> => {
+        try {
+            if (!req.providerProfile) {
+                throw new UnauthorizedAccessException("Unauthorized");
+            }
+            const data = await ProviderService.toggleAvailability(req.providerProfile._id.toString())
+            ok_handler(res, "Completed", data)
+        } catch (error) {
+            error_handler(error, req, res)
+        }
+    }
+}

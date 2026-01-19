@@ -40,7 +40,10 @@ providerRoutes.get('/me', controller.getProfile());
  * dashboard management
  */
 
-providerRoutes.get('/dashboard-data',controller.getDashboardData())
+providerRoutes.get('/dashboard-data', controller.getDashboardData())
+
+// Toggle availability (Online/Offline)
+providerRoutes.patch('/toggle-availability', controller.toggleAvailability());
 
 
 // providerRoutes.get('/search', controller.getProfile());
