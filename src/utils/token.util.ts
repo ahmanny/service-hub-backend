@@ -1,7 +1,7 @@
 import type { Request } from 'express';
 import { RefreshToken } from '../models/refresh-token.model';
 import { JwtService } from '../services/jwt.service';
-import { ConsumerType } from '../types/consumer/profile.types';
+import { ConsumerProfileType } from '../types/consumer/profile.types';
 import { getConsumerById } from '../models/consumer.model';
 import { userType } from '../types/user.type';
 import { getUserById } from '../models/user.model';

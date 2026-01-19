@@ -2,7 +2,7 @@ import { Types } from "mongoose";
 import { IConsumerProfile } from "../../models/consumer.model";
 import { IProviderShopAddress, Services } from "../../models/provider.model";
 
-export type ConsumerType = IConsumerProfile & {
+export type ConsumerProfileType = IConsumerProfile & {
     _id: Types.ObjectId;
     createdAt?: string;
     updatedAt?: string;

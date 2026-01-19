@@ -1,5 +1,16 @@
-import { IAvailabilityDay, Services } from "../models/provider.model";
+import { Types } from "mongoose";
+import { IAvailabilityDay, IProviderProfile, Services } from "../models/provider.model";
 import { ServiceType } from "./service.types";
+
+
+
+export type ProviderProfileType = IProviderProfile & {
+    _id: Types.ObjectId;
+    createdAt?: string;
+    updatedAt?: string;
+    __v?: number;
+};
+
 
 export interface ProviderListItem {
     _id: string;

@@ -26,6 +26,22 @@ providerRoutes.use(authMiddleware.authorizeRole("provider"));
 
 providerRoutes.get('/me', controller.getProfile());
 
+/**
+ * Personal Information Management
+ */
+
+
+/**
+ * Address Management
+ */
+
+
+/**
+ * dashboard management
+ */
+
+providerRoutes.get('/dashboard-data',controller.getDashboardData())
+
 
 // providerRoutes.get('/search', controller.getProfile());
 // providerRoutes.get('/me', controller.getProfile());

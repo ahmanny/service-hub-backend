@@ -93,3 +93,18 @@ export const completeProfile = (): RequestHandler => {
         }
     }
 }
+
+// fetch provider dashboard data 
+export const getDashboardData = (): RequestHandler => {
+    return async (req: Request, res: Response): Promise<void> => {
+        try {
+            if (!req.providerProfile) {
+                throw new UnauthorizedAccessException("Unauthorized");
+            }
+            const data = await ProviderService.fetchDashboardData(req.providerProfile._id.toString())
+            ok_handler(res, "Completed", data)
+        } catch (error) {
+            error_handler(error, req, res)
+        }
+    }
+}

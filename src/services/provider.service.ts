@@ -1,11 +1,13 @@
 import { SearchPayload } from '../types/consumer';
 import { getDirections } from '../utils/routeDirection.utils';
 import { IProviderProfile, Provider } from '../models/provider.model';
-import { Types } from 'mongoose';
+import mongoose, { Types } from 'mongoose';
 import { createProviderProfilePayload } from '../types/providers.types';
 import Exception from '../exceptions/Exception';
 import { User } from '../models/user.model';
 import ResourceNotFoundException from '../exceptions/ResourceNotFoundException';
+import { startOfDay, endOfDay } from "date-fns";
+import { Booking } from '../models/booking.model';
 
 
 class ProviderServiceClass {
@@ -135,6 +137,87 @@ class ProviderServiceClass {
         const profile = await this.fetchProfile(user._id)
 
         return { profile }
+    }
+
+
+    /**
+     * get provider dashboard data
+     */
+    public async fetchDashboardData(providerId: string) {
+        const today = new Date();
+        const start = startOfDay(today);
+        const end = endOfDay(today);
+
+        // stats, upcoming and pending
+        const [stats, upcoming, pendingList, pendingTotal, upcomingTotal] = await Promise.all([
+
+            // Today's Stats (just Completed)
+            Booking.aggregate([
+                {
+                    $match: {
+                        providerId: new mongoose.Types.ObjectId(providerId),
+                        status: 'completed',
+                        updatedAt: { $gte: start, $lte: end }
+                    }
+                },
+                {
+                    $group: {
+                        _id: null,
+                        earnings: { $sum: "$price.total" },
+                        count: { $sum: 1 }
+                    }
+                }
+            ]),
+
+            //  Upcoming Bookings (Accepted status, scheduled for future)
+            Booking.find({ providerId, status: 'accepted', scheduledAt: { $gte: today } })
+                .sort({ scheduledAt: 1 })
+                .limit(5),
+
+            // Pending Bookings (Limit 5) 
+            Booking.find({ providerId, status: 'pending' })
+                .sort({ createdAt: -1 })
+                .limit(5)
+                .populate("consumerId", "firstName profilePicture"),
+
+            //  Total Pending Count
+            Booking.countDocuments({ providerId, status: 'pending' }),
+
+            //  Total upcoming Count
+            Booking.countDocuments({ providerId, status: 'accepted', scheduledAt: { $gte: today } })
+
+        ])
+
+
+        return {
+            todayStats: {
+                earnings: stats[0]?.earnings || 0,
+                completedJobs: stats[0]?.count || 0
+            },
+            upcomingBookings: {
+                total: upcomingTotal,
+                list: upcoming.map(b => ({
+                    id: b._id.toString(),
+                    title: b.serviceName,
+                    time: b.scheduledAt.toISOString(),
+                }))
+            },
+            pendingBooking: {
+                total: pendingTotal,
+                list: pendingList.map(p => ({
+                    _id: p._id.toString(),
+                    serviceName: p.serviceName,
+                    price: p.price.total,
+                    scheduledAt: p.scheduledAt.toISOString(),
+                    deadlineAt: p.deadlineAt?.toISOString() || "",
+                    type: p.location.type,
+                    status: p.status,
+                    serviceType: p.serviceType,
+                    consumer: p.consumerId
+                }))
+            }
+        };
+
     }
 
     /**
