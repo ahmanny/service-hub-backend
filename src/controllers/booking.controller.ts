@@ -25,6 +25,7 @@ export const bookProvider = (): RequestHandler => {
 export const getBookings = (): RequestHandler => {
     return async (req: Request, res: Response): Promise<void> => {
         try {
+            console.log("Am in the controller")
             // Determine if requester is Provider or Consumer
             const consumerId = req.consumerProfile?._id;
             const providerId = req.providerProfile?._id;
@@ -50,6 +51,7 @@ export const getBookings = (): RequestHandler => {
 
             ok_handler(res, "Bookings retrieved successfully", data);
         } catch (error) {
+            console.log(error)
             error_handler(error, req, res);
         }
     };
