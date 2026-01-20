@@ -489,6 +489,9 @@ class ConsumerServiceClass {
                 $geoNear: {
                     near: { type: "Point", coordinates: [lng, lat] },
                     distanceField: "straightDistance", // distance in meters
+                    distanceMultiplier: 0.001,
+                    key: "shopAddress.location",
+
                     spherical: true,
                     query: query,
                 },
@@ -508,7 +511,7 @@ class ConsumerServiceClass {
             basePrice: provider.basePriceFrom || 0,
             rating: provider.rating || 0,
             profilePicture: provider.profilePicture || null,
-            distance: Math.round((provider.straightDistance / 1000) * 10) / 10,
+            distance: provider.straightDistance.toFixed(1),
             duration: null,
             isClosest: index === 0,
         }));
