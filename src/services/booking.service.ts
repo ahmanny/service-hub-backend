@@ -207,12 +207,13 @@ class BookingServiceClass {
 
         const booking = await Booking.findById(bookingId)
             .populate("providerId", "firstName rating profilePicture")
-            .populate("consumerId", "firstName  profilePicture")
+            .populate("consumerId", "firstName rating profilePicture")
             .lean();
 
         if (!booking) throw new ResourceNotFoundException("Booking not found");
 
         const provider: any = booking.providerId;
+        const consumer: any = booking.consumerId;
 
         return {
             _id: booking._id.toString(),
@@ -239,6 +240,12 @@ class BookingServiceClass {
                 rating: provider.rating || 0,
                 profilePicture: provider.profilePicture || null,
             },
+            consumer: {
+                _id: consumer._id.toString(),
+                firstName: consumer.firstName,
+                rating: consumer.rating || 0,
+                profilePicture: consumer.profilePicture || null,
+            },
 
             location: {
                 type: booking.location.type,
@@ -254,7 +261,7 @@ class BookingServiceClass {
             },
         };
     }
-    
+
     public async updateBookingStatus(payload: {
         bookingId: string;
         action: "accept" | "decline" | "cancel" | "reschedule";
