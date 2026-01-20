@@ -26,7 +26,6 @@ export interface fetchBookingsPayload {
     tab: "upcoming" | "past" | "all" | "pending";
     consumerId?: Types.ObjectId;
     providerId?: Types.ObjectId;
-    page?: number;
-    skip?: number;
-    limit?: number;
+    lng?: any
+    lat?: any
 }

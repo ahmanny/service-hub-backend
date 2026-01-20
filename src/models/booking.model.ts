@@ -169,5 +169,6 @@ const BookingSchema = new Schema<IBooking>(
     }
 );
 
+BookingSchema.index({ "location.geoAddress.location": "2dsphere" });
 
 export const Booking = mongoose.model<IBooking>("Booking", BookingSchema);

@@ -22,24 +22,30 @@ export const bookProvider = (): RequestHandler => {
     }
 }
 
-// get bookings for consumer 
-export const getConsumerBookings = (): RequestHandler => {
+export const getBookings = (): RequestHandler => {
     return async (req: Request, res: Response): Promise<void> => {
         try {
-            if (!req.consumerProfile) {
-                throw new UnauthorizedAccessException("Unauthorized");
+            // Determine if requester is Provider or Consumer
+            const consumerId = req.consumerProfile?._id;
+            const providerId = req.providerProfile?._id;
+
+            if (!consumerId && !providerId) {
+                throw new UnauthorizedAccessException("No profile context found");
             }
 
-            // 1. Cast query strings to actual numbers
             const tab = (req.query.tab as string) || "all";
-            const page = parseInt(req.query.page as string) || 1;
-            const limit = parseInt(req.query.limit as string) || 10;
+
+            // Use parseFloat instead of parseInt for coordinates! 
+            // Lat/Lng are decimals (e.g., 6.5244)
+            const lat = req.query.lat ? parseFloat(req.query.lat as string) : undefined;
+            const lng = req.query.lng ? parseFloat(req.query.lng as string) : undefined;
 
             const data = await BookingService.fetchBookings({
-                consumerId: req.consumerProfile._id,
+                consumerId,
+                providerId,
                 tab: tab as any,
-                page,
-                limit,
+                lat,
+                lng
             });
 
             ok_handler(res, "Bookings retrieved successfully", data);
@@ -48,7 +54,6 @@ export const getConsumerBookings = (): RequestHandler => {
         }
     };
 };
-
 // get a booking details
 export const getBookingDetails = (): RequestHandler => {
     return async (req: Request, res: Response): Promise<void> => {
@@ -134,19 +139,3 @@ export const getRescheduleSchedule = (): RequestHandler => {
         }
     };
 };
-
-
-// get bookings for Provider
-// export const getProviderBookings = (): RequestHandler => {
-//     return async (req: Request, res: Response): Promise<void> => {
-//         try {
-//             if (!req.providerProfile) {
-//                 throw new UnauthorizedAccessException("Unauthorized");
-//             }
-//             const data = await BookingService.fetchBookings({ providerId: req.providerProfile._id, ...req.query })
-//             ok_handler(res, "Request Sent", data)
-//         } catch (error) {
-//             error_handler(error, req, res)
-//         }
-//     }
-// }

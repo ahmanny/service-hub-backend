@@ -1,3 +1,4 @@
+import { Types } from "mongoose";
 import Exception from "../exceptions/Exception";
 import ForbiddenAccessException from "../exceptions/ForbiddenAccessException";
 import MissingParameterException from "../exceptions/MissingParameterException";
@@ -105,70 +106,96 @@ class BookingServiceClass {
     }
 
     public async fetchBookings(payload: fetchBookingsPayload) {
-        const { tab, consumerId, providerId, page = 1, limit = 10 } = payload;
-        const skip = (page - 1) * limit;
-
-        //  Build Query with specific MongoDB Filter type
-        // const query: IBooking = {};
-        const query: any = {};
-        if (consumerId) query.consumerId = consumerId;
-        if (providerId) query.providerId = providerId;
-
+        const { tab, providerId, consumerId, lat, lng } = payload;
         const now = new Date();
+
+        const pipeline: any[] = [];
+
+        // Geo-spatial Distance Calculation
+        if (lat !== undefined && lng !== undefined) {
+            pipeline.push({
+                $geoNear: {
+                    near: { type: "Point", coordinates: [Number(lng), Number(lat)] },
+                    distanceField: "distance",
+                    spherical: true,
+                    distanceMultiplier: 0.001
+                }
+            });
+        }
+
+        // Build Match Filter
+        const matchQuery: any = {};
+        if (providerId) matchQuery.providerId = new Types.ObjectId(providerId);
+        if (consumerId) matchQuery.consumerId = new Types.ObjectId(consumerId);
+
 
         switch (tab) {
             case "upcoming":
-                // Confirmed bookings that are in the future
-                query.scheduledAt = { $gte: now };
-                query.status = "accepted";
+                matchQuery.scheduledAt = { $gte: now };
+                matchQuery.status = "accepted";
                 break;
             case "past":
-                // Anything in the past OR specifically marked as finished/cancelled
-                query.$or = [
+                matchQuery.$or = [
                     { scheduledAt: { $lt: now } },
                     { status: { $in: ["completed", "cancelled", "declined", "expired"] } }
                 ];
                 break;
             case "pending":
-                // Only things waiting for action
-                query.status = "pending";
-                break;
-            default:
+                matchQuery.status = "pending";
                 break;
         }
 
-        // Execute Count and Find in parallel for performance
-        const [bookings, totalCount] = await Promise.all([
-            Booking.find(query)
-                .sort({ scheduledAt: -1 })
-                .skip(skip)
-                .limit(limit)
-                .lean(), // Returns plain objects, much faster
-            Booking.countDocuments(query),
-        ]);
+        pipeline.push({ $match: matchQuery });
 
-        // Simple map (No Promise.all needed here since it's synchronous)
-        const results = bookings.map((booking) => ({
-            _id: booking._id,
-            serviceName: booking.serviceName,
-            serviceType: booking.serviceType,
-            price: booking.price.total,
-            scheduledAt: booking.scheduledAt,
-            locationLabel: booking.location?.type === "shop" ? "In Shop Service" : "Home Service",
-            status: booking.status,
-            createdAt: booking.createdAt,
-            updatedAt: booking.updatedAt,
-            _v: booking.__v
+
+        //Lookup Consumer Info 
+        pipeline.push(
+            {
+                $lookup: {
+                    from: "consumers",
+                    localField: "consumerId",
+                    foreignField: "_id",
+                    as: "consumerData"
+                }
+            },
+            { $unwind: { path: "$consumerData", preserveNullAndEmptyArrays: true } }
+        );
+
+        // last sorting
+        pipeline.push({ $sort: { scheduledAt: tab === "upcoming" ? 1 : -1 } });
+
+
+        //  Execute Pipeline
+        const bookings = await Booking.aggregate(pipeline);
+
+
+
+        const results = bookings.map((b) => ({
+            _id: b._id,
+
+            serviceName: b.serviceName,
+            serviceType: b.serviceType,
+            price: b.price.total,
+
+            scheduledAt: b.scheduledAt,
+            deadlineAt: b.deadlineAt?.toISOString() || "",
+            createdAt: b.createdAt.toISOString(),
+            updatedAt: b.updatedAt?.toISOString(),
+
+            locationLabel: b.location.type === "shop" ? "Shop Visit" : "Home Service",
+            distance: b.distance ? `${b.distance.toFixed(1)} km` : undefined,
+            status: b.status,
+
+            _v: b.__v,
+
+            consumer: {
+                firstName: b.consumerData?.firstName || "Customer",
+                profilePicture: b.consumerData?.profilePicture || ""
+            }
         }));
 
         return {
             results,
-            pagination: {
-                totalCount,
-                totalPages: Math.ceil(totalCount / limit),
-                currentPage: page,
-                hasNextPage: page * limit < totalCount,
-            },
         };
     }
 
@@ -200,8 +227,8 @@ class BookingServiceClass {
             cancelledAt: booking.cancelledAt?.toISOString(),
             declinedAt: booking.declinedAt?.toISOString(),
             acceptedAt: booking.acceptedAt?.toISOString(),
-            rescheduledAt:booking.rescheduledAt?.toISOString(),
-        
+            rescheduledAt: booking.rescheduledAt?.toISOString(),
+
             note: booking?.note,
             declineReason: booking?.declineReason,
             expiredMessage: booking?.expiredMessage,
