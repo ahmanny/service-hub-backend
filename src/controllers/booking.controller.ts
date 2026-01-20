@@ -4,10 +4,10 @@ import { BookingService } from "../services/booking.service";
 import { error_handler, ok_handler } from "../utils/response_handler";
 import MissingParameterException from "../exceptions/MissingParameterException";
 
-
-
-
-// book a provider for a service 
+/**
+ * Creates a new booking request.
+ * Restricted to: Consumer only.
+ */
 export const bookProvider = (): RequestHandler => {
     return async (req: Request, res: Response): Promise<void> => {
         try {
@@ -22,11 +22,15 @@ export const bookProvider = (): RequestHandler => {
     }
 }
 
+/**
+ * Retrieves a list of bookings filtered by status tabs (pending, upcoming, past).
+ * Supports: Consumer and Provider 
+ * Optional: lat/lng query params for distance calculation.
+ */
 export const getBookings = (): RequestHandler => {
     return async (req: Request, res: Response): Promise<void> => {
         try {
             console.log("Am in the controller")
-            // Determine if requester is Provider or Consumer
             const consumerId = req.consumerProfile?._id;
             const providerId = req.providerProfile?._id;
 
@@ -36,8 +40,6 @@ export const getBookings = (): RequestHandler => {
 
             const tab = (req.query.tab as string) || "all";
 
-            // Use parseFloat instead of parseInt for coordinates! 
-            // Lat/Lng are decimals (e.g., 6.5244)
             const lat = req.query.lat ? parseFloat(req.query.lat as string) : undefined;
             const lng = req.query.lng ? parseFloat(req.query.lng as string) : undefined;
 
@@ -56,21 +58,29 @@ export const getBookings = (): RequestHandler => {
         }
     };
 };
-// get a booking details
+
+/**
+ * Retrieves full details for a specific booking.
+ * Supports: Consumer and Provider.
+ * Validates: Ensures the requester is part of the booking.
+ */
 export const getBookingDetails = (): RequestHandler => {
     return async (req: Request, res: Response): Promise<void> => {
         try {
-            if (!req.consumerProfile) {
-                throw new UnauthorizedAccessException("Unauthorized");
+            const consumerId = req.consumerProfile?._id;
+            const providerId = req.providerProfile?._id;
+
+            if (!consumerId && !providerId) {
+                throw new UnauthorizedAccessException("No profile context found");
             }
+
             const { bookingId } = req.params
             if (!bookingId) {
                 throw new MissingParameterException("provider Id is missing")
             }
             const data = await BookingService.fetchBookingsDetails({
                 bookingId,
-                currentUserId: req.consumerProfile._id.toString(),
-                role: "consumer"
+                currentUserId: consumerId?.toString() || providerId?.toString(),
             })
             ok_handler(res, "successfull", data)
         } catch (error) {
@@ -79,6 +89,10 @@ export const getBookingDetails = (): RequestHandler => {
     }
 }
 
+/**
+ * Processes status updates for a booking (Accept, Decline, Cancel, Reschedule).
+ * Supports: Consumer (Cancel/Reschedule) and Provider (Accept/Decline).
+ */
 export const handleBookingAction = (): RequestHandler => {
     return async (req: Request, res: Response): Promise<void> => {
         try {
@@ -86,7 +100,6 @@ export const handleBookingAction = (): RequestHandler => {
             const { bookingId } = req.params;
             const { action, reason, newScheduledAt } = req.body;
 
-            // Identify who is calling based on your middleware
             const userId = req.consumerProfile?._id || req.providerProfile?._id;
 
             if (!userId) {
@@ -105,7 +118,6 @@ export const handleBookingAction = (): RequestHandler => {
                 userId: userId.toString(),
             });
 
-            // Dynamic message based on action
             const messages = {
                 accept: "Booking accepted successfully",
                 decline: "Booking declined",
@@ -120,6 +132,10 @@ export const handleBookingAction = (): RequestHandler => {
     };
 };
 
+/**
+ * Retrieves provider availability and schedule specifically for rescheduling purposes.
+ * Restricted to: Consumer (looking to change an existing booking).
+ */
 export const getRescheduleSchedule = (): RequestHandler => {
     return async (req: Request, res: Response): Promise<void> => {
         try {

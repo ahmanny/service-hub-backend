@@ -201,15 +201,13 @@ class BookingServiceClass {
 
     public async fetchBookingsDetails(payload: {
         bookingId: string,
-        currentUserId: string,
-        role: 'consumer' | 'provider'
+        currentUserId?: string,
     }) {
-        const { bookingId, currentUserId, role } = payload;
+        const { bookingId, currentUserId } = payload;
 
-        // Note: ensure you select/populate everything needed
         const booking = await Booking.findById(bookingId)
             .populate("providerId", "firstName rating profilePicture")
-            .populate("consumerId", "firstName profilePicture")
+            .populate("consumerId", "firstName  profilePicture")
             .lean();
 
         if (!booking) throw new ResourceNotFoundException("Booking not found");
@@ -256,6 +254,7 @@ class BookingServiceClass {
             },
         };
     }
+    
     public async updateBookingStatus(payload: {
         bookingId: string;
         action: "accept" | "decline" | "cancel" | "reschedule";
