@@ -13,4 +13,4 @@ consumerAuthRoutes.post('/refresh', controller.refreshSession())
 consumerAuthRoutes.post('/logout', controller.logout())
 
 
-consumerAuthRoutes.post('/verify-otp', controller.verifyOtp("provider"))
+consumerAuthRoutes.post('/verify-otp', controller.verifyOtp("consumer"))
