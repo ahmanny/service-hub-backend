@@ -131,14 +131,10 @@ class BookingServiceClass {
 
         switch (tab) {
             case "upcoming":
-                matchQuery.scheduledAt = { $gte: now };
-                matchQuery.status = "accepted";
+                matchQuery.status = { $in: ["accepted", "in_progress"] };
                 break;
             case "past":
-                matchQuery.$or = [
-                    { scheduledAt: { $lt: now } },
-                    { status: { $in: ["completed", "cancelled", "declined", "expired"] } }
-                ];
+                matchQuery.status = { $in: ["completed", "cancelled", "declined", "expired"] };
                 break;
             case "pending":
                 matchQuery.status = "pending";
@@ -146,6 +142,13 @@ class BookingServiceClass {
         }
 
         pipeline.push({ $match: matchQuery });
+
+        pipeline.push({
+            $sort: {
+                status: -1,
+                scheduledAt: tab === "upcoming" ? 1 : -1
+            }
+        });
 
 
         //Lookup Consumer Info 
@@ -186,6 +189,10 @@ class BookingServiceClass {
             distance: b.distance ? `${b.distance.toFixed(1)} km` : undefined,
             status: b.status,
 
+            autoStarted: b.autoStarted,
+            isDisputed: b.isDisputed,
+            actualStartTime: b.actualStartTime?.toISOString(),
+
             _v: b.__v,
 
             consumer: {
@@ -215,12 +222,15 @@ class BookingServiceClass {
         const provider: any = booking.providerId;
         const consumer: any = booking.consumerId;
 
+        const isActiveOrDone = ["accepted", "in_progress", "completed"].includes(booking.status);
+
         return {
             _id: booking._id.toString(),
             serviceName: booking.serviceName,
             serviceType: booking.serviceType,
             status: booking.status,
 
+            // Time Tracking
             scheduledAt: booking.scheduledAt.toISOString(),
             deadlineAt: booking.deadlineAt?.toISOString(),
             cancelledAt: booking.cancelledAt?.toISOString(),
@@ -228,9 +238,17 @@ class BookingServiceClass {
             acceptedAt: booking.acceptedAt?.toISOString(),
             rescheduledAt: booking.rescheduledAt?.toISOString(),
 
-            note: booking?.note,
-            declineReason: booking?.declineReason,
-            expiredMessage: booking?.expiredMessage,
+            // Tracking Fields
+            actualStartTime: booking.actualStartTime?.toISOString(),
+            autoStarted: booking.autoStarted || false,
+            isDisputed: booking.isDisputed || false,
+
+            // Status Messages
+            note: booking.note,
+            declineReason: booking.declineReason,
+            expiredMessage: booking.expiredMessage,
+            cancelMessage: booking.cancelMessage,
+
             createdAt: booking.createdAt?.toISOString(),
             updatedAt: booking.updatedAt?.toISOString(),
 
@@ -247,11 +265,15 @@ class BookingServiceClass {
                 profilePicture: consumer.profilePicture || null,
             },
 
-            location: {
+            /**
+             * Location Privacy Logic: 
+             * Reveal address if accepted, in_progress, or completed.
+             */
+            location: isActiveOrDone ? {
                 type: booking.location.type,
                 geoAddress: booking.location.geoAddress,
                 textAddress: booking.location.textAddress,
-            },
+            } : null,
 
             price: {
                 service: booking.price.service,
@@ -393,10 +415,40 @@ class BookingServiceClass {
             bookedSlots
         };
     }
+
+    // 
+    public async processAcceptedZombies() {
+        const GRACE_PERIOD_MINUTES = 15;
+        const cutoffTime = new Date(Date.now() - GRACE_PERIOD_MINUTES * 60000);
+
+        // Find bookings that are 'accepted' but the scheduled time is now 15+ mins past
+        const zombieBookings = await Booking.find({
+            status: "accepted",
+            scheduledAt: { $lte: cutoffTime }
+        });
+
+        if (zombieBookings.length === 0) return;
+
+        const results = await Promise.allSettled(
+            zombieBookings.map(async (booking) => {
+                booking.status = "in_progress";
+                booking.autoStarted = true;
+                booking.actualStartTime = new Date();
+                await booking.save();
+
+                //  TRIGGER notification service here
+                // NotificationService.notifyAutoStart(booking);
+            })
+        );
+
+        console.log(`[CRON] Auto-started ${zombieBookings.length} zombie bookings`);
+    }
+
+    // 
     public async cleanupExpiredBookings() {
         const now = new Date();
 
-        // 1. Fetch all pending bookings to see what we are dealing with
+        //  Fetch all pending bookings to see what we are dealing with
         const pendingBookings = await Booking.find({ status: "pending" })
             .select("deadlineAt status _id")
             .lean();
@@ -404,16 +456,15 @@ class BookingServiceClass {
         console.log(`[CRON DEBUG] Found ${pendingBookings.length} total pending bookings.`);
         console.log(`[CRON DEBUG] Current Server Time (UTC): ${now.toISOString()}`);
 
-        // Inside your cleanupExpiredBookings method
         if (pendingBookings.length > 0) {
             pendingBookings.forEach((b, index) => {
-                // Fix: Use a fallback or check if deadlineAt exists
+                //Use a fallback or check if deadlineAt exists
                 if (!b.deadlineAt) {
                     console.log(`   -> [${index + 1}] ID: ${b._id} | ⚠️ No deadline set!`);
                     return;
                 }
 
-                const deadline = new Date(b.deadlineAt); // TS is now happy because we checked it
+                const deadline = new Date(b.deadlineAt);
                 const isExpired = deadline < now;
 
                 console.log(
@@ -422,7 +473,7 @@ class BookingServiceClass {
             });
         }
 
-        // 2. Perform the update
+        //Perform the update
         const result = await Booking.updateMany(
             {
                 status: "pending",
@@ -437,7 +488,7 @@ class BookingServiceClass {
         );
 
         if (result.modifiedCount > 0) {
-            console.log(`[CRON] ✅ Successfully expired ${result.modifiedCount} bookings.`);
+            console.log(`[CRON] Successfully expired ${result.modifiedCount} bookings.`);
         }
 
         return result.modifiedCount;

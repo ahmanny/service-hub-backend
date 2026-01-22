@@ -43,7 +43,12 @@ export interface IBooking {
     expiredMessage?: string;
     cancelMessage?: string;
 
-    status: "pending" | "accepted" | "declined" | "completed" | "cancelled" | "expired";
+    status: "pending" | "accepted" | "declined" | "completed" | "cancelled" | "expired" | "in_progress";
+
+    actualStartTime?: Date;
+    autoStarted: boolean; // True if the cron job moved it to in_progress
+    isDisputed: boolean;  // If the customer flags a no-show
+
     createdAt?: Date;
     updatedAt?: Date;
 }
@@ -138,11 +143,15 @@ const BookingSchema = new Schema<IBooking>(
 
         status: {
             type: String,
-            enum: ["pending", "accepted", "declined", "completed", "cancelled", "expired"],
-            // status: "pending" | "accepted" | "declined" | "completed" | "cancelled" | "expired"
+            enum: ["pending", "accepted", "declined", "completed", "cancelled", "expired", "in_progress"],
             default: "pending",
             index: true,
         },
+
+        actualStartTime: { type: Date },
+        autoStarted: { type: Boolean, default: false },
+        isDisputed: { type: Boolean, default: false },
+
         deadlineAt: {
             type: Date,
             index: true

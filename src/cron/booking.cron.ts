@@ -12,5 +12,14 @@ export const initCronJobs = () => {
         }
     });
 
+    cron.schedule("*/5 * * * *", async () => { // Running every 5 mins 
+        try {
+            console.log("🧟 Checking for accepted bookings that should be in-progress...");
+            await BookingService.processAcceptedZombies();
+        } catch (error) {
+            console.error("Critical: Zombie Cron job failed", error);
+        }
+    });
+
     console.log("Booking Cron Jobs Initialized");
 };
