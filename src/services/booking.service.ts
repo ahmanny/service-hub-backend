@@ -270,11 +270,11 @@ class BookingServiceClass {
              * Location Privacy Logic: 
              * Reveal address if accepted, in_progress, or completed.
              */
-            location: isActiveOrDone ? {
-                type: booking.location.type,
-                geoAddress: booking.location.geoAddress,
-                textAddress: booking.location.textAddress,
-            } : null,
+            location: {
+                type: booking.location.type, // Always reveal (e.g., 'home' or 'shop')
+                geoAddress: isActiveOrDone ? booking.location.geoAddress : null,
+                textAddress: isActiveOrDone ? booking.location.textAddress : "Address hidden until accepted",
+            },
 
             price: {
                 service: booking.price.service,
