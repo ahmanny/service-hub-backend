@@ -90,8 +90,8 @@ export const getBookingDetails = (): RequestHandler => {
 }
 
 /**
- * Processes status updates for a booking (Accept, Decline, Cancel, Reschedule).
- * Supports: Consumer (Cancel/Reschedule) and Provider (Accept/Decline).
+ * Processes status updates for a booking (Accept, Decline, Cancel, Reschedule,start,complete).
+ * Supports: Consumer (Cancel/Reschedule) and Provider (Accept/Decline,start,complete).
  */
 export const handleBookingAction = (): RequestHandler => {
     return async (req: Request, res: Response): Promise<void> => {
