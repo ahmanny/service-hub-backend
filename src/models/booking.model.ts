@@ -30,6 +30,7 @@ export interface IBooking {
     declinedAt?: Date;
     acceptedAt?: Date;
     rescheduledAt?: Date;
+    completedAt?: Date;
 
 
     location: {
@@ -42,6 +43,7 @@ export interface IBooking {
     declineReason?: string;
     expiredMessage?: string;
     cancelMessage?: string;
+
 
     status: "pending" | "accepted" | "declined" | "completed" | "cancelled" | "expired" | "in_progress";
 
@@ -169,6 +171,10 @@ const BookingSchema = new Schema<IBooking>(
             index: true
         },
         rescheduledAt: {
+            type: Date,
+            index: true
+        },
+        completedAt: {
             type: Date,
             index: true
         },

@@ -237,6 +237,7 @@ class BookingServiceClass {
             declinedAt: booking.declinedAt?.toISOString(),
             acceptedAt: booking.acceptedAt?.toISOString(),
             rescheduledAt: booking.rescheduledAt?.toISOString(),
+            completedAt: booking.completedAt?.toISOString(),
 
             // Tracking Fields
             actualStartTime: booking.actualStartTime?.toISOString(),
@@ -286,7 +287,7 @@ class BookingServiceClass {
 
     public async updateBookingStatus(payload: {
         bookingId: string;
-        action: "accept" | "decline" | "cancel" | "reschedule";
+        action: "accept" | "decline" | "cancel" | "reschedule" | "start" | "complete";
         reason?: string;
         newScheduledAt?: string;
         userId: string;
@@ -370,9 +371,48 @@ class BookingServiceClass {
                 booking.deadlineAt = this.calculateDeadline(newDate);
 
                 break;
+
+            case "start":
+                // only providers can start a booking
+                if (!isProvider) {
+                    throw new ForbiddenAccessException("Only the provider can start this service.");
+                }
+
+                // can only start an accpeted booking and not a booking thats already in progress
+                if (booking.status === "in_progress") {
+                    throw new Exception("Service is already in progress.");
+                }
+
+                if (booking.status !== "accepted") {
+                    throw new Exception(`Cannot start a service that is ${booking.status}.`);
+                }
+
+                booking.status = "in_progress";
+                booking.actualStartTime = new Date();
+                // Manually started by provider and not by the system
+                booking.autoStarted = false;
+                break;
+
+            case "complete":
+                if (!isProvider) {
+                    throw new ForbiddenAccessException("Only the provider can mark this as completed.");
+                }
+
+                if (booking.status !== "in_progress") {
+                    throw new Exception("Only in-progress services can be marked as completed.");
+                }
+
+                booking.status = "completed";
+                booking.completedAt = new Date();
+
+                break;
+
         }
 
         await booking.save();
+
+        //After saving, trigger notifications based on the action
+        // this.notificationService.notifyStatusChange(booking, action);
         return booking;
     }
 
