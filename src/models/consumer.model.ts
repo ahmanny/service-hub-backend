@@ -31,7 +31,7 @@ const ConsumerSchema = new Schema<IConsumerProfile>({
   userId: {
     type: Schema.Types.ObjectId,
     ref: "User",
-    unique: true, // one provider profile per user
+    unique: true, 
     required: true,
     index: true,
   },

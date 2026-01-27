@@ -92,6 +92,7 @@ const ProviderSchema = new Schema<IProviderProfile>(
     {
         userId: {
             type: Schema.Types.ObjectId,
+            ref: "User",
             required: true,
             unique: true,
             index: true,
