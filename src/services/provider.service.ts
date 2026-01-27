@@ -23,6 +23,8 @@ class ProviderServiceClass {
             })
             .lean({ virtuals: true });
 
+        console.log(profile)
+
         return {
             hasProfile: Boolean(profile),
             profile: profile ? this.sanitizeProfile(profile) : null
@@ -249,6 +251,8 @@ class ProviderServiceClass {
 
         // Extract the populated User document
         const { userId, ...profileData } = profile;
+
+        console.log(userId)
 
         return {
             ...profileData,
