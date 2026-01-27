@@ -21,9 +21,7 @@ class ProviderServiceClass {
                 // Select only provider-related fields and common fields
                 select: "providerEmail providerPhone isProviderEmailVerified activeRoles createdAt",
             })
-            .lean({ virtuals: true });
-
-        console.log(profile)
+            .lean()
 
         return {
             hasProfile: Boolean(profile),
@@ -252,7 +250,24 @@ class ProviderServiceClass {
         // Extract the populated User document
         const { userId, ...profileData } = profile;
 
-        console.log(userId)
+
+        // --- DEBUG LOGS ---
+        console.log("--- DEBUG START ---");
+        if (!profile) {
+            console.log("RESULT: No Provider profile found for this ID");
+        } else {
+            console.log("RAW USERID FIELD FROM DB:", profile.userId);
+
+            if (profile.userId && typeof profile.userId === 'object') {
+                console.log("POPULATION SUCCESS: Found User Document");
+                console.log("KEYS FOUND IN USERID:", Object.keys(profile.userId));
+                console.log("PROVIDER PHONE:", profile.userId?.providerPhone);
+                console.log("PROVIDER EMAIL:", profile.userId.providerEmail);
+            } else {
+                console.log("POPULATION FAILED: userId is still a String/ID and not an Object");
+            }
+        }
+        console.log("--- DEBUG END ---");
 
         return {
             ...profileData,
