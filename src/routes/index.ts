@@ -5,6 +5,7 @@ import { adminRoutes } from './admin.routes';
 import { providerRoutes } from './provider.routes';
 import { bookingRoutes } from './booking.route';
 import { AuthMiddleware } from '../middlewares';
+import { userRoutes } from './user.routes';
 const routes = Router();
 const Middleware = new AuthMiddleware();
 
@@ -17,6 +18,7 @@ routes.use('/auth', authRoutes);
 
 
 routes.use(Middleware.validateToken)
+routes.use('/users', userRoutes);
 routes.use('/consumer', consumerRoutes);
 routes.use('/provider', providerRoutes);
 routes.use('/bookings', bookingRoutes);

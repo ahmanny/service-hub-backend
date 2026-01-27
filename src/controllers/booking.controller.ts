@@ -3,6 +3,7 @@ import UnauthorizedAccessException from "../exceptions/UnauthorizedAccessExcepti
 import { BookingService } from "../services/booking.service";
 import { error_handler, ok_handler } from "../utils/response_handler";
 import MissingParameterException from "../exceptions/MissingParameterException";
+import { NotificationService } from "../services/notifications.service";
 
 /**
  * Creates a new booking request.
@@ -15,6 +16,17 @@ export const bookProvider = (): RequestHandler => {
                 throw new UnauthorizedAccessException("Unauthorized");
             }
             const data = await BookingService.createBooking({ consumerId: req.consumerProfile._id, ...req.body })
+
+
+            NotificationService.sendByProfile(
+                'provider',
+                req.body.providerId,
+                "New Booking Request!",
+                `You have a new request from ${data.firstName}`,
+                { bookingId: data.bookingId }
+            );
+
+
             ok_handler(res, "Request Sent", data)
         } catch (error) {
             error_handler(error, req, res)
