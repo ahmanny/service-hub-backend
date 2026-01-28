@@ -15,4 +15,5 @@ export type TJwtConfig = {
     refresh_token_secret_key: string;
     access_token_expiration_time: string;
     refresh_token_expiration_time_in_db: number;
+    verify_token_secret_key: string
 };

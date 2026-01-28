@@ -16,8 +16,7 @@ class JwtServiceClass {
     private getSecretKey(type: 'access' | 'refresh' | 'verify') {
         switch (type) {
             case 'verify':
-                // TODO:Use a dedicated secret for email/phone verification links
-                return process.env.JWT_VERIFY_SECRET || 'fallback_verification_secret_123';
+                return jwtConfig.configs.verify_token_secret_key;
             case 'refresh':
                 return jwtConfig.configs.refresh_token_secret_key;
             case 'access':
