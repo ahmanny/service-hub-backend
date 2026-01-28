@@ -8,6 +8,12 @@ import { User } from '../models/user.model';
 import ResourceNotFoundException from '../exceptions/ResourceNotFoundException';
 import { startOfDay, endOfDay } from "date-fns";
 import { Booking } from '../models/booking.model';
+import { OtpSession } from '../models/otp.model';
+import TooManyAttemptsException from '../exceptions/TooManyAttemptsException';
+import { BLOCK_DURATION_HOURS, MAX_VERIFY_ATTEMPTS } from '../configs/otpPolicy';
+import { hashOtp } from '../utils/otp.utils';
+import { JwtService } from './jwt.service';
+import MissingParameterException from '../exceptions/MissingParameterException';
 
 
 class ProviderServiceClass {
@@ -136,6 +142,9 @@ class ProviderServiceClass {
 
         const profile = await this.fetchProfile(user._id)
 
+        console.log("[Debugging]", profile)
+
+
         return { profile }
     }
 
@@ -242,6 +251,180 @@ class ProviderServiceClass {
     }
 
     /**
+ * Service Methods for Consumer account personal info management
+*/
+    /**
+     * Updates the names on the Consumer profile.
+     */
+    public async updateName(providerId: string, payload: { firstName?: string; lastName?: string }) {
+        const { firstName, lastName } = payload;
+        if (!firstName && !lastName) {
+            throw new MissingParameterException("Please provide at least one name to update");
+        }
+
+        const updatedProfile = await Provider.findByIdAndUpdate(
+            providerId,
+            {
+                ...(firstName && { firstName }),
+                ...(lastName && { lastName })
+            },
+            { new: true, runValidators: true }
+        ).populate("userId", "consumerPhone consumerEmail");
+
+        if (!updatedProfile) {
+            throw new ResourceNotFoundException("Consumer profile not found");
+        }
+
+        return { message: "updated" };
+    }
+
+    // verify OTP and update provider phone (no token generation)
+    public async changeNumber(providerId: string, payload: { phone: string, otp: string }) {
+        const { phone, otp } = payload;
+
+        if (!phone || !otp) throw new Exception("Phone and OTP are required");
+
+        // Identity
+        const profile = await Provider.findById(providerId);
+        if (!profile) throw new ResourceNotFoundException("profile not found");
+
+        const currentUser = await User.findById(profile.userId);
+        if (!currentUser) throw new ResourceNotFoundException("User account not found");
+
+        // OTP Validation
+        const now = new Date();
+        const session = await OtpSession.findOne({ phone });
+        if (!session) throw new Exception("No OTP session found, please request a code");
+
+        if (session.blockedUntil && session.blockedUntil > now) {
+            throw new TooManyAttemptsException("Too many attempts. Try again later.");
+        }
+        if (session.expiresAt < now) throw new Exception("OTP expired.");
+
+        if (session.verifyAttempts >= MAX_VERIFY_ATTEMPTS) {
+            session.blockedUntil = new Date(now.getTime() + BLOCK_DURATION_HOURS * 60 * 60 * 1000);
+            await session.save();
+            throw new TooManyAttemptsException("Too many failed attempts.");
+        }
+
+        if (hashOtp(otp) !== session.otpHash) {
+            session.verifyAttempts += 1;
+            await session.save();
+            throw new Exception("Invalid OTP.");
+        }
+
+        // number isn't taken by another account
+        const collision = await User.findOne({
+            providerPhone: phone,
+            _id: { $ne: currentUser._id }
+        });
+
+        if (collision) {
+            throw new Exception("This phone number is already used by another account.");
+        }
+
+        //Update and Cleanup
+        currentUser.providerPhone = phone;
+        await currentUser.save();
+        await session.deleteOne();
+
+        //  Return fresh profile data for sync
+        const updatedData = await this.fetchProfile(currentUser._id);
+
+        return updatedData; // Just return { hasProfile, profile }
+    }
+
+    /**
+ * Then initiates the sending of the verification link.
+ */
+    public async changeEmail(providerId: string, payload: { email: string }) {
+        const { email } = payload;
+
+        if (!email) throw new Exception("New email is required");
+
+        //Resolve Identity
+        const profile = await Provider.findById(providerId);
+        if (!profile) throw new ResourceNotFoundException("profile not found");
+
+        const currentUser = await User.findById(profile.userId);
+        if (!currentUser) throw new ResourceNotFoundException("User account not found");
+
+        // Collision Check
+        const collision = await User.findOne({
+            providerEmail: email,
+            _id: { $ne: currentUser._id }
+        });
+
+        if (collision) {
+            throw new Exception("This email is already associated with another account.");
+        }
+
+        //  THE UPDATE: Store the new email but mark as unverified
+        currentUser.providerEmail = email;
+        currentUser.isProviderEmailVerified = false;
+        await currentUser.save();
+
+        //  Generate Verification Token for the link
+        // The token now only needs the ID since the email is already in the DB
+        const verificationToken = JwtService.sign(
+            { id: currentUser._id, purpose: 'email_verification' },
+            'verify'
+        );
+
+        //  Send Verification Email (Placeholder)
+        const verificationUrl = `${process.env.FRONTEND_URL}/verify-email?token=${verificationToken}`;
+
+        /* TODO: Implement Mailer Service
+           await EmailService.sendVerificationLink(email, verificationUrl);
+        */
+
+        console.log("VERIFICATION URL:", verificationUrl)
+
+        return {
+            message: "Email updated and verification link sent.",
+            user: currentUser
+        };
+    }
+
+    /**
+     * Verifies the token from the email link and updates the database.
+     */
+    public async verifyEmailUpdate(token: string) {
+        if (!token) throw new Exception("Verification token is required");
+
+        //  Decode the token (Using your JwtService)
+        // The token should contain { userId, newEmail }
+        const decoded = JwtService.verify(token, 'access') as { id: string, newEmail: string };
+
+        if (!decoded || !decoded.newEmail) {
+            throw new Exception("Invalid or expired verification link.");
+        }
+
+        // Resolve the User
+        const user = await User.findById(decoded.id);
+        if (!user) throw new ResourceNotFoundException("User not found");
+
+        // Final Collision Check (Just in case someone took the email while user was away)
+        const collision = await User.findOne({
+            providerEmail: decoded.newEmail,
+            _id: { $ne: user._id }
+        });
+
+        if (collision) {
+            throw new Exception("This email is taken by another account.");
+        }
+
+        // THE UPDATE: Commit the new email and set verified to true
+        user.providerEmail = decoded.newEmail;
+        user.isProviderEmailVerified = true;
+        await user.save();
+
+        // Fetch and return the updated profile for the frontend
+        return await this.fetchProfile(user._id);
+    }
+
+
+    /**
  * PRIVATE UTILS
  */
     private sanitizeProfile(profile: any) {
@@ -249,25 +432,6 @@ class ProviderServiceClass {
 
         // Extract the populated User document
         const { userId, ...profileData } = profile;
-
-
-        // --- DEBUG LOGS ---
-        console.log("--- DEBUG START ---");
-        if (!profile) {
-            console.log("RESULT: No Provider profile found for this ID");
-        } else {
-            console.log("RAW USERID FIELD FROM DB:", profile.userId);
-
-            if (profile.userId && typeof profile.userId === 'object') {
-                console.log("POPULATION SUCCESS: Found User Document");
-                console.log("KEYS FOUND IN USERID:", Object.keys(profile.userId));
-                console.log("PROVIDER PHONE:", profile.userId?.providerPhone);
-                console.log("PROVIDER EMAIL:", profile.userId.providerEmail);
-            } else {
-                console.log("POPULATION FAILED: userId is still a String/ID and not an Object");
-            }
-        }
-        console.log("--- DEBUG END ---");
 
         return {
             ...profileData,

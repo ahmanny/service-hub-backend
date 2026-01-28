@@ -123,3 +123,84 @@ export const toggleAvailability = (): RequestHandler => {
         }
     }
 }
+
+
+// Update the first and last name of the consumer
+export const updateName = (): RequestHandler => {
+    return async (req: Request, res: Response): Promise<void> => {
+        try {
+            if (!req.providerProfile) {
+                throw new UnauthorizedAccessException("Unauthorized");
+            }
+
+            const data = await ProviderService.updateName(
+                req.providerProfile._id.toString(),
+                req.body
+            );
+
+            ok_handler(res, "Name updated successfully", data);
+        } catch (error) {
+            error_handler(error, req, res);
+        }
+    };
+};
+
+// Initiate email change (stores pending email and sends link)
+export const changeEmail = (): RequestHandler => {
+    return async (req: Request, res: Response): Promise<void> => {
+        try {
+            if (!req.providerProfile) {
+                throw new UnauthorizedAccessException("Unauthorized");
+            }
+
+            const data = await ProviderService.changeEmail(
+                req.providerProfile._id.toString(),
+                req.body
+            );
+
+            ok_handler(res, "Verification link sent", data);
+        } catch (error) {
+            error_handler(error, req, res);
+        }
+    };
+};
+
+// Finalize email change (triggered by the link click)
+export const verifyEmailUpdate = (): RequestHandler => {
+    return async (req: Request, res: Response): Promise<void> => {
+        try {
+            const { token } = req.query; // Usually passed as ?token=...
+            if (!token) {
+                throw new MissingParameterException("Verification token is missing");
+            }
+
+            const data = await ProviderService.verifyEmailUpdate(token as string);
+            ok_handler(res, "Email verified successfully", data);
+        } catch (error) {
+            error_handler(error, req, res);
+        }
+    };
+};
+
+
+// Update phone number using OTP verification
+export const changeNumber = (): RequestHandler => {
+    return async (req: Request, res: Response): Promise<void> => {
+        try {
+            if (!req.providerProfile) {
+                throw new UnauthorizedAccessException("Unauthorized");
+            }
+
+            const data = await ProviderService.changeNumber(
+                req.providerProfile._id.toString(),
+                req.body
+            );
+
+            ok_handler(res, "Phone number updated successfully", data);
+        } catch (error) {
+            error_handler(error, req, res);
+        }
+    };
+};
+
+

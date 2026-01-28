@@ -17,8 +17,8 @@ consumerRoutes.get('/me', controller.getProfile());
  * Personal Information Management
  */
 consumerRoutes.patch('/update-name', controller.updateName());
-consumerRoutes.post('/change-email', controller.changeEmail()); // Initiates verification link sending
-consumerRoutes.patch('/change-phone', controller.changeNumber()); // Verifies OTP
+consumerRoutes.post('/change-email', controller.changeEmail());
+consumerRoutes.patch('/change-phone', controller.changeNumber());
 
 /**
  * Address Management

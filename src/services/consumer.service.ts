@@ -216,14 +216,14 @@ class ConsumerServiceClass {
 
         if (!phone || !otp) throw new Exception("Phone and OTP are required");
 
-        // 1. Resolve Identity
+        //Resolve Identity
         const profile = await Consumer.findById(consumerId);
-        if (!profile) throw new ResourceNotFoundException("Consumer not found");
+        if (!profile) throw new ResourceNotFoundException("profile not found");
 
         const currentUser = await User.findById(profile.userId);
         if (!currentUser) throw new ResourceNotFoundException("User account not found");
 
-        // 2. OTP Validation Logic
+        //  Validation
         const now = new Date();
         const session = await OtpSession.findOne({ phone });
         if (!session) throw new Exception("No OTP session found, please request a code");
@@ -245,7 +245,7 @@ class ConsumerServiceClass {
             throw new Exception("Invalid OTP.");
         }
 
-        // 3. Collision Check: Ensure number isn't taken by another consumer
+        //  number isn't taken by another consumer
         const collision = await User.findOne({
             consumerPhone: phone,
             _id: { $ne: currentUser._id }
@@ -255,12 +255,12 @@ class ConsumerServiceClass {
             throw new Exception("This phone number is already used by another consumer account.");
         }
 
-        // 4. Update and Cleanup
+        // Update and Cleanup
         currentUser.consumerPhone = phone;
         await currentUser.save();
         await session.deleteOne();
 
-        // 5. Return fresh profile data for frontend sync
+        //  Return fresh profile data for sync
         const updatedData = await this.fetchProfile(currentUser._id);
 
         return updatedData; // Just return { hasProfile, profile }
@@ -300,7 +300,7 @@ class ConsumerServiceClass {
 
         //Resolve Identity
         const profile = await Consumer.findById(consumerId);
-        if (!profile) throw new ResourceNotFoundException("Consumer not found");
+        if (!profile) throw new ResourceNotFoundException("profile not found");
 
         const currentUser = await User.findById(profile.userId);
         if (!currentUser) throw new ResourceNotFoundException("User account not found");
@@ -312,7 +312,7 @@ class ConsumerServiceClass {
         });
 
         if (collision) {
-            throw new Exception("This email is already associated with another consumer account.");
+            throw new Exception("This email is already associated with another account.");
         }
 
         //  THE UPDATE: Store the new email but mark as unverified
@@ -327,6 +327,7 @@ class ConsumerServiceClass {
         //  Send Verification Email (Placeholder)
         const verificationUrl = `${process.env.FRONTEND_URL}/verify-email?token=${verificationToken}`;
 
+        console.log("VERIFICATION URL:", verificationUrl)
         /* TODO: Implement Mailer Service
            await EmailService.sendVerificationLink(email, verificationUrl);
         */

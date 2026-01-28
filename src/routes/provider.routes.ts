@@ -29,6 +29,10 @@ providerRoutes.get('/me', controller.getProfile());
 /**
  * Personal Information Management
  */
+providerRoutes.patch('/update-name', controller.updateName());
+providerRoutes.post('/change-email', controller.changeEmail()); 
+providerRoutes.patch('/change-phone', controller.changeNumber());
+
 
 
 /**
@@ -39,16 +43,7 @@ providerRoutes.get('/me', controller.getProfile());
 /**
  * dashboard management
  */
-
 providerRoutes.get('/dashboard-data', controller.getDashboardData())
 
 // Toggle availability (Online/Offline)
 providerRoutes.patch('/toggle-availability', controller.toggleAvailability());
-
-
-// providerRoutes.get('/search', controller.getProfile());
-// providerRoutes.get('/me', controller.getProfile());
-// providerRoutes.patch('/complete-profile', controller.completeProfile());
-// providerRoutes.patch('/update', controller.updateUserController());
-// user.post('/validate', controller.validate);
-// user.post('/add-new-user/:id', controller.addNewUser())
