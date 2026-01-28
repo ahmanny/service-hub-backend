@@ -7,6 +7,7 @@ export const providerAuthRoutes = Router()
 providerAuthRoutes.post('/send-otp', controller.sendOtp())
 providerAuthRoutes.post('/resend-otp', controller.resendOtp())
 providerAuthRoutes.post('/get-otp-cooldown', controller.getOtpCooldown())
+providerAuthRoutes.post('/refresh', controller.refreshSession())
 providerAuthRoutes.post('/logout', controller.logout())
 
 
