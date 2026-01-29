@@ -11,8 +11,9 @@ export interface IUser {
   providerEmail?: string;
   isProviderEmailVerified: boolean;
 
-  // Metadata
-  pushTokens: string[];
+  consumerPushTokens: string[];
+  providerPushTokens: string[];
+
   activeRoles: ('consumer' | 'provider')[];
 }
 
@@ -51,7 +52,15 @@ const UserSchema = new Schema<IUser>({
   isConsumerEmailVerified: { type: Boolean, default: false },
   isProviderEmailVerified: { type: Boolean, default: false },
 
-  pushTokens: {
+  // Consumer-specific device tokens
+  consumerPushTokens: {
+    type: [String],
+    default: [],
+    index: true
+  },
+
+  // Provider-specific device tokens
+  providerPushTokens: {
     type: [String],
     default: [],
     index: true

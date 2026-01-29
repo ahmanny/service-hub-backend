@@ -1,30 +1,35 @@
 import { Request, RequestHandler, Response } from "express"
 import { error_handler, ok_handler } from "../utils/response_handler"
-import { AuthService } from "../services/auth.service"
 import MissingParameterException from "../exceptions/MissingParameterException"
 import { AppRole } from "../utils"
-import Exception from "../exceptions/Exception"
 import { User } from "../models/user.model"
+import UnauthorizedAccessException from "../exceptions/UnauthorizedAccessException"
 
 
-export const savePushToken = (): RequestHandler => {
+export const savePushToken = (role: AppRole): RequestHandler => {
     return async (req: Request, res: Response): Promise<void> => {
         try {
             const { pushToken } = req.body;
             const userId = req.currentUser?._id;
 
             if (!pushToken) {
-                throw new Exception("Push token is required")
+                throw new MissingParameterException("Push token is required");
             }
 
-            // Add token to the array only if it doesn't exist
+            if (!userId) {
+                throw new UnauthorizedAccessException("Identity not found");
+            }
+
+            // The role is now "baked in" from the route definition
+            const tokenField = role === 'provider' ? 'providerPushTokens' : 'consumerPushTokens';
+
             await User.findByIdAndUpdate(userId, {
-                $addToSet: { pushTokens: pushToken },
+                $addToSet: { [tokenField]: pushToken },
             });
 
-            ok_handler(res, "Push token saved successfully", {});
+            ok_handler(res, `Push token saved for ${role} successfully`, {});
         } catch (error) {
-            error_handler(error, req, res)
+            error_handler(error, req, res);
         }
     }
 }

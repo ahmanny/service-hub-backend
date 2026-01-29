@@ -1,5 +1,6 @@
 import { Router } from "express";
 import * as controller from '../../controllers/auth.controller';
+import * as userController from '../../controllers/user.controller';
 
 
 export const providerAuthRoutes = Router()
@@ -12,3 +13,5 @@ providerAuthRoutes.post('/logout', controller.logout())
 
 
 providerAuthRoutes.post('/verify-otp', controller.verifyOtp("provider"))
+
+providerAuthRoutes.post('/save-token', userController.savePushToken('provider'));

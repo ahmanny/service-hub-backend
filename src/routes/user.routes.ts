@@ -6,5 +6,4 @@ export const userRoutes = Router();
 const authMiddleware = new AuthMiddleware();
 
 // Initial profile setup 
-userRoutes.patch("/update-push-token", controller.savePushToken());
 
