@@ -18,13 +18,20 @@ export const bookProvider = (): RequestHandler => {
             const data = await BookingService.createBooking({ consumerId: req.consumerProfile._id, ...req.body })
 
 
+            const consumerName = `${req.consumerProfile.firstName} ${req.consumerProfile.lastName}`;
+            const serviceRequested = data.serviceName;
+
             NotificationService.sendByProfile(
                 'provider',
-                req.body.providerId,
-                "New Booking Request!",
-                `You have a new request from ${data.firstName}`,
-                { bookingId: data.bookingId }
-            );
+                data.providerId.toString(),
+                "New Booking Request! 📅",
+                `${consumerName} wants to book you for ${serviceRequested}.`,
+                {
+                    bookingId: data.bookingId.toString(),
+                    type: "NEW_BOOKING",
+                    screen: "BookingDetails"
+                }
+            ).catch(err => console.error("Notification Error:", err));
 
 
             ok_handler(res, "Request Sent", data)
@@ -108,18 +115,15 @@ export const getBookingDetails = (): RequestHandler => {
 export const handleBookingAction = (): RequestHandler => {
     return async (req: Request, res: Response): Promise<void> => {
         try {
-            console.log("am here to perform an action")
             const { bookingId } = req.params;
             const { action, reason, newScheduledAt } = req.body;
 
-            const userId = req.consumerProfile?._id || req.providerProfile?._id;
+            // Identify who is making the request
+            const isProvider = Boolean(req.providerProfile);
+            const actorProfile = req.providerProfile || req.consumerProfile;
 
-            if (!userId) {
+            if (!actorProfile) {
                 throw new UnauthorizedAccessException("Identity not found");
-            }
-
-            if (!bookingId) {
-                throw new MissingParameterException("Booking ID is required");
             }
 
             const data = await BookingService.updateBookingStatus({
@@ -127,8 +131,47 @@ export const handleBookingAction = (): RequestHandler => {
                 action,
                 reason,
                 newScheduledAt,
-                userId: userId.toString(),
+                userId: actorProfile._id.toString(),
             });
+
+            const targetType = isProvider ? 'consumer' : 'provider';
+            const targetId = isProvider ? data.consumerId : data.providerId;
+
+            // 2. Draft dynamic messages based on action
+            const notificationContent = {
+                accept: {
+                    title: "Booking Accepted! ✅",
+                    body: `${data.providerName} has accepted your request for ${data.serviceName}.`
+                },
+                decline: {
+                    title: "Booking Declined ❌",
+                    body: `${data.providerName} cannot fulfill your request at this time.`
+                },
+                cancel: {
+                    title: "Booking Cancelled ⚠️",
+                    body: `${isProvider ? data.providerName : data.consumerName} cancelled the booking.`
+                },
+                reschedule: {
+                    title: "Reschedule Requested 🕒",
+                    body: `${isProvider ? data.providerName : data.consumerName} requested a new time.`
+                },
+            };
+
+            const content = notificationContent[action as keyof typeof notificationContent];
+
+            if (content) {
+                NotificationService.sendByProfile(
+                    targetType,
+                    targetId.toString(),
+                    content.title,
+                    content.body,
+                    {
+                        bookingId: data._id.toString(),
+                        action,
+                        screen: "BookingDetails"
+                    }
+                ).catch(err => console.error("[Notification Error]:", err));
+            }
 
             const messages = {
                 accept: "Booking accepted successfully",
@@ -143,7 +186,6 @@ export const handleBookingAction = (): RequestHandler => {
         }
     };
 };
-
 /**
  * Retrieves provider availability and schedule specifically for rescheduling purposes.
  * Restricted to: Consumer (looking to change an existing booking).

@@ -6,6 +6,7 @@ import ResourceNotFoundException from "../exceptions/ResourceNotFoundException";
 import { Booking, IBooking } from "../models/booking.model";
 import { IProviderShopAddress, Provider } from "../models/provider.model";
 import { CreateBookingPayload, fetchBookingsPayload } from "../types/booking.type";
+import { Consumer } from "../models/consumer.model";
 
 class BookingServiceClass {
     constructor() {
@@ -101,7 +102,9 @@ class BookingServiceClass {
             bookingId: booking._id,
             firstName: provider.firstName,
             status: booking.status,
-            deadlineAt: deadline
+            serviceName: booking.serviceName,
+            deadlineAt: deadline,
+            providerId
         };
     }
 
@@ -411,9 +414,24 @@ class BookingServiceClass {
 
         await booking.save();
 
-        //After saving, trigger notifications based on the action
-        // this.notificationService.notifyStatusChange(booking, action);
-        return booking;
+        // Fetch related names for the notification
+        const [consumer, provider] = await Promise.all([
+            Consumer.findById(booking.consumerId).select('firstName lastName').lean(),
+            Provider.findById(booking.providerId).select('firstName lastName').lean()
+        ]);
+
+        const consumerName = consumer ? `${consumer.firstName} ${consumer.lastName}` : "A client";
+        const providerName = provider ? `${provider.firstName} ${provider.lastName}` : "A provider";
+
+        return {
+            ...booking.toObject(),
+            bookingId: booking._id.toString(),
+            consumerId: booking.consumerId.toString(),
+            providerId: booking.providerId.toString(),
+            consumerName,
+            providerName,
+            serviceName: booking.serviceName
+        };
     }
 
     public async getRescheduleData(bookingId: string, userId: string) {
