@@ -73,11 +73,13 @@ class NotificationServiceClass {
 
             messages.push({
                 to: token,
-                sound: 'default',
                 title,
                 body,
                 data: data || {},
-                priority: 'high',
+                sound: 'default', // REQUIRED for vibration on iOS
+                priority: 'high',  // REQUIRED for vibration/heads-up on Android
+                interruptionLevel: 'time-sensitive',
+                channelId: 'default',
             });
         }
 
