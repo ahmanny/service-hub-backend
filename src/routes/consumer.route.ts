@@ -1,12 +1,17 @@
 import { Router } from 'express';
 import * as controller from '../controllers/consumer/consumer.controller';
 import { AuthMiddleware } from '../middlewares';
+import * as userController from '../controllers/user.controller';
 
 export const consumerRoutes = Router();
 const authMiddleware = new AuthMiddleware();
 
+// save token 
+consumerRoutes.post('/save-token', userController.savePushToken('consumer'));
+
 // Initial profile setup 
 consumerRoutes.patch('/complete-profile', controller.completeProfile());
+
 
 // Middleware: ensure user is logged in AND has a consumer profile context
 consumerRoutes.use(authMiddleware.authorizeRole("consumer"));

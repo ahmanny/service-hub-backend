@@ -1,6 +1,5 @@
 import { Router } from "express";
 import * as controller from '../../controllers/auth.controller';
-import * as userController from '../../controllers/user.controller';
 
 
 
@@ -14,5 +13,3 @@ consumerAuthRoutes.post('/logout', controller.logout())
 
 
 consumerAuthRoutes.post('/verify-otp', controller.verifyOtp("consumer"))
-
-consumerAuthRoutes.post('/save-token', userController.savePushToken('consumer'));
