@@ -8,7 +8,7 @@ const authMiddleware = new AuthMiddleware();
 
 
 // save provider tokens
-providerRoutes.post('/save-token', userController.savePushToken('provider'));
+providerRoutes.patch('/save-token', userController.savePushToken('provider'));
 
 
 // Initial profile setup 

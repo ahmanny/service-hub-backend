@@ -7,7 +7,7 @@ export const consumerRoutes = Router();
 const authMiddleware = new AuthMiddleware();
 
 // save token 
-consumerRoutes.post('/save-token', userController.savePushToken('consumer'));
+consumerRoutes.patch('/save-token', userController.savePushToken('consumer'));
 
 // Initial profile setup 
 consumerRoutes.patch('/complete-profile', controller.completeProfile());
