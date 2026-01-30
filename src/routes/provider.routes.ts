@@ -37,6 +37,7 @@ providerRoutes.get('/me', controller.getProfile());
 providerRoutes.patch('/update-name', controller.updateName());
 providerRoutes.post('/change-email', controller.changeEmail());
 providerRoutes.patch('/change-phone', controller.changeNumber());
+providerRoutes.patch('/update-bio', controller.updateBio());
 
 
 

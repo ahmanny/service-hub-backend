@@ -100,7 +100,12 @@ const ProviderSchema = new Schema<IProviderProfile>(
         firstName: { type: String, required: true, trim: true },
         lastName: { type: String, required: true, trim: true },
         profilePicture: { type: String },
-        bio: { type: String, trim: true },
+        bio: {
+            type: String,
+            trim: true,
+            default: "",
+            maxlength: [250, "Bio cannot exceed 250 characters"],
+        },
 
         isAvailable: { type: Boolean, default: true, index: true },
         availabilityMode: {

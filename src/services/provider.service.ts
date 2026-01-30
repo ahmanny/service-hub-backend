@@ -14,6 +14,7 @@ import { BLOCK_DURATION_HOURS, MAX_VERIFY_ATTEMPTS } from '../configs/otpPolicy'
 import { hashOtp } from '../utils/otp.utils';
 import { JwtService } from './jwt.service';
 import MissingParameterException from '../exceptions/MissingParameterException';
+import BadRequestException from '../exceptions/BadRequestException';
 
 
 class ProviderServiceClass {
@@ -251,10 +252,10 @@ class ProviderServiceClass {
     }
 
     /**
- * Service Methods for Consumer account personal info management
+ * Service Methods  account personal info management
 */
     /**
-     * Updates the names on the Consumer profile.
+     * Updates the names on profile.
      */
     public async updateName(providerId: string, payload: { firstName?: string; lastName?: string }) {
         const { firstName, lastName } = payload;
@@ -421,6 +422,40 @@ class ProviderServiceClass {
 
         // Fetch and return the updated profile for the frontend
         return await this.fetchProfile(user._id);
+    }
+
+    public async updateBio(providerId: string, payload: { bio: string }) {
+        const { bio } = payload;
+
+
+        if (bio === undefined || bio === null) {
+            throw new MissingParameterException("Bio content is required");
+        }
+
+        const cleanedBio = bio?.trim() || "";
+
+        if (!cleanedBio && bio !== "") {
+            throw new BadRequestException("Bio cannot consist only of spaces");
+        }
+
+        const MAX_LENGTH = 250;
+        if (bio.length > MAX_LENGTH) {
+            throw new BadRequestException(`Bio is too long. Maximum ${MAX_LENGTH} characters allowed.`);
+        }
+
+        const updatedProfile = await Provider.findByIdAndUpdate(
+            providerId,
+            { bio: cleanedBio },
+            { new: true, runValidators: true }
+        )
+
+        if (!updatedProfile) {
+            throw new ResourceNotFoundException("Provider profile not found");
+        }
+
+        return {
+            message: "Bio updated successfully",
+        };
     }
 
 

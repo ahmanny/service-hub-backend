@@ -1,4 +1,5 @@
-export const ExceptionCode = 101;
+export const ExceptionCode = 100;
+export const InternalServerErrorExceptionCode = 101;
 export const InvalidAccessCredentialsExceptionsCode = 102;
 export const UserNotFoundCode = 104;
 export const ProductNotFoundCode = 105;
@@ -10,3 +11,6 @@ export const MissingParameterExceptionCode = 110
 export const ResourceNotFoundExceptionCode = 111
 export const ConflictExceptionCode = 112
 export const TooManyAttemptsExceptionCode = 113
+export const BadRequestExceptionCode = 114
+export const PayloadTooLargeExceptionCode = 115
+export const UnprocessableEntityExceptionCode = 116

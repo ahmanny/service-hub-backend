@@ -203,4 +203,24 @@ export const changeNumber = (): RequestHandler => {
     };
 };
 
+// Update bio
+export const updateBio = (): RequestHandler => {
+    return async (req: Request, res: Response): Promise<void> => {
+        try {
+            if (!req.providerProfile) {
+                throw new UnauthorizedAccessException("Unauthorized");
+            }
+
+            const data = await ProviderService.updateBio(
+                req.providerProfile._id.toString(),
+                req.body
+            );
+
+            ok_handler(res, "Bio updated successfully", data);
+        } catch (error) {
+            error_handler(error, req, res);
+        }
+    };
+};
+
 
