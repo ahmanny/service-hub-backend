@@ -77,7 +77,7 @@ class AuthServiceClass {
 
         // GENERATE OTP
         // const otp = generateNumericOtp();
-        const otp = 2026
+        const otp = "2026"
         session.otpHash = hashOtp(otp);
         session.expiresAt = new Date(now.getTime() + OTP_EXPIRY_MINUTES * 60 * 1000);
         session.verifyAttempts = 0;  // reset verify attempts
