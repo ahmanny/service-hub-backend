@@ -35,21 +35,29 @@ providerRoutes.get('/me', controller.getProfile());
  * Personal Information Management
  */
 providerRoutes.patch('/update-name', controller.updateName());
-providerRoutes.post('/change-email', controller.changeEmail());
+providerRoutes.patch('/change-email', controller.changeEmail());
+providerRoutes.get('/verify-email', controller.verifyEmailUpdate());
 providerRoutes.patch('/change-phone', controller.changeNumber());
 providerRoutes.patch('/update-bio', controller.updateBio());
+providerRoutes.patch('/update-profile-photo', upload.fields([
+    { name: 'profilePicture', maxCount: 1 },
+]),
+    controller.updateProfilePhoto());
 
 
 
 /**
- * Address Management
- */
+ * LOGISTICS (GEOSPATIAL & DELIVERY) 
+*/
+providerRoutes.patch('/update-delivery-mode', controller.updateDeliveryMode());
+providerRoutes.patch('/update-shop-location', controller.updateShopLocation());
+providerRoutes.patch('/update-service-area', controller.updateServiceArea());
 
 
 /**
- * dashboard management
+ * OPERATIONS (DASHBOARD, AVAILABILITY, SERVICES)
  */
 providerRoutes.get('/dashboard-data', controller.getDashboardData())
-
-// Toggle availability (Online/Offline)
 providerRoutes.patch('/toggle-availability', controller.toggleAvailability());
+providerRoutes.patch('/update-services', controller.updateServices());
+providerRoutes.patch('/update-availability', controller.updateAvailability());

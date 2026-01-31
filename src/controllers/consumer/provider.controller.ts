@@ -1,28 +1,30 @@
+import { Request, RequestHandler, Response } from "express";
+import { ProviderService } from "../../services/provider.service";
+import { error_handler, ok_handler } from "../../utils/response_handler";
 import MissingParameterException from "../../exceptions/MissingParameterException";
 import UnauthorizedAccessException from "../../exceptions/UnauthorizedAccessException";
-import { AuthService } from "../../services/auth.service";
-import { ProviderService } from "../../services/provider.service";
-import { uploadSingleToCloudinary } from "../../utils/cloudinary";
-import { error_handler, ok_handler } from "../../utils/response_handler";
-import { Request, RequestHandler, Response } from "express";
+import { CloudinaryService } from "../../services/cloudinary.service";
 
+// --- SECTION 1: IDENTITY & PROFILE BASE ---
 
-// get logged in consumer profile
+/**
+ * Get logged in provider profile
+ */
 export const getProfile = (): RequestHandler => {
     return async (req: Request, res: Response): Promise<void> => {
         try {
-            if (!req.currentUser) {
-                throw new UnauthorizedAccessException("Unauthorized");
-            }
-            const data = await ProviderService.fetchProfile(req.currentUser._id)
-            ok_handler(res, "Completed", data)
+            if (!req.currentUser) throw new UnauthorizedAccessException("Unauthorized");
+            const data = await ProviderService.fetchProfile(req.currentUser._id);
+            ok_handler(res, "Profile fetched", data);
         } catch (error) {
-            error_handler(error, req, res)
+            error_handler(error, req, res);
         }
-    }
-}
+    };
+};
 
-// complete profile for logged in provider
+/**
+ * Complete profile (Initial Onboarding)
+ */
 export const completeProfile = (): RequestHandler => {
     return async (req: Request, res: Response): Promise<void> => {
         try {
@@ -30,41 +32,35 @@ export const completeProfile = (): RequestHandler => {
 
             if (!req.appType && req.appType !== "provider") {
                 throw new UnauthorizedAccessException("Unauthorized ");
+
             }
-
-
 
             const files = req.files as { [fieldname: string]: Express.Multer.File[] };
-
-            // 1. STRICTOR VALIDATION: Ensure all required files exist
-            if (!files?.profilePicture?.[0]) {
-                throw new MissingParameterException("Profile picture is required.");
-            }
-            if (!files?.idImage?.[0]) {
-                throw new MissingParameterException("Identification document image is required.");
-            }
-            if (!files?.selfieImage?.[0]) {
-                throw new MissingParameterException("A verification selfie is required.");
+            if (!files?.profilePicture?.[0] || !files?.idImage?.[0] || !files?.selfieImage?.[0]) {
+                throw new MissingParameterException("Missing required verification images.");
             }
 
-            // Upload Images to Cloudinary 
-            const [profilePictureUrl, idUri, selfieUri] = await Promise.all([
-                uploadSingleToCloudinary(
+            const [profileRes, idRes, selfieRes] = await Promise.all([
+                CloudinaryService.uploadImage(
                     files.profilePicture[0].buffer,
                     'profiles',
-                    `profile_${req.currentUser._id}`
+                    `provider_profile_${req.currentUser._id}`
                 ),
-                uploadSingleToCloudinary(
+                CloudinaryService.uploadImage(
                     files.idImage[0].buffer,
                     'verification',
-                    `id_${req.currentUser._id}`
+                    `provider_id_${req.currentUser._id}`
                 ),
-                uploadSingleToCloudinary(
+                CloudinaryService.uploadImage(
                     files.selfieImage[0].buffer,
                     'verification',
-                    `selfie_${req.currentUser._id}`
+                    `provider_selfie_${req.currentUser._id}`
                 )
             ]);
+
+            const profilePictureUrl = profileRes.secure_url;
+            const idUri = idRes.secure_url;
+            const selfieUri = selfieRes.secure_url;
 
             const body = typeof req.body.services === 'string'
                 ? {
@@ -76,151 +72,166 @@ export const completeProfile = (): RequestHandler => {
                 }
                 : req.body;
 
-            const payload = {
+            const data = await ProviderService.createProfile({
                 ...body,
                 userId: req.currentUser._id,
                 profilePicture: profilePictureUrl,
-                verification: {
-                    idUri: idUri,
-                    selfieUri: selfieUri
-                }
-            };
+                verification: { idUri, selfieUri }
+            });
 
-            const data = await ProviderService.createProfile(payload);
             ok_handler(res, "Profile Completed Successfully", data);
         } catch (error) {
-            error_handler(error, req, res)
+            error_handler(error, req, res);
         }
-    }
-}
+    };
+};
 
-// fetch provider dashboard data 
-export const getDashboardData = (): RequestHandler => {
-    return async (req: Request, res: Response): Promise<void> => {
-        try {
-            if (!req.providerProfile) {
-                throw new UnauthorizedAccessException("Unauthorized");
-            }
-            const data = await ProviderService.fetchDashboardData(req.providerProfile._id.toString())
-            ok_handler(res, "Completed", data)
-        } catch (error) {
-            error_handler(error, req, res)
-        }
-    }
-}
+// --- SECTION 2: SETTINGS UPDATES (NAME, PHOTO, BIO, CONTACT) ---
 
-
-export const toggleAvailability = (): RequestHandler => {
-    return async (req: Request, res: Response): Promise<void> => {
-        try {
-            if (!req.providerProfile) {
-                throw new UnauthorizedAccessException("Unauthorized");
-            }
-            const data = await ProviderService.toggleAvailability(req.providerProfile._id.toString())
-            ok_handler(res, "Completed", data)
-        } catch (error) {
-            error_handler(error, req, res)
-        }
-    }
-}
-
-
-// Update the first and last name of the consumer
 export const updateName = (): RequestHandler => {
     return async (req: Request, res: Response): Promise<void> => {
         try {
             if (!req.providerProfile) {
                 throw new UnauthorizedAccessException("Unauthorized");
             }
-
-            const data = await ProviderService.updateName(
-                req.providerProfile._id.toString(),
-                req.body
-            );
-
+            const data = await ProviderService.updateName(req.providerProfile!._id.toString(), req.body);
             ok_handler(res, "Name updated successfully", data);
-        } catch (error) {
-            error_handler(error, req, res);
-        }
+        } catch (error) { error_handler(error, req, res); }
     };
 };
 
-// Initiate email change (stores pending email and sends link)
-export const changeEmail = (): RequestHandler => {
+export const updateProfilePhoto = (): RequestHandler => {
     return async (req: Request, res: Response): Promise<void> => {
         try {
+            if (!req.currentUser) throw new UnauthorizedAccessException("Unauthorized");
+
             if (!req.providerProfile) {
                 throw new UnauthorizedAccessException("Unauthorized");
             }
-
-            const data = await ProviderService.changeEmail(
-                req.providerProfile._id.toString(),
-                req.body
-            );
-
-            ok_handler(res, "Verification link sent", data);
-        } catch (error) {
-            error_handler(error, req, res);
-        }
+            const files = req.files as { [fieldname: string]: Express.Multer.File[] };
+            const [profileRes] = await Promise.all([
+                CloudinaryService.uploadImage(
+                    files.profilePicture[0].buffer,
+                    'profiles',
+                    `provider_profile_${req.currentUser._id}`
+                ),
+            ])
+            const profilePictureUrl = profileRes.secure_url;
+            const data = await ProviderService.updateProfilePhoto({ profilePicture: profilePictureUrl, providerId: req.providerProfile!._id.toString() });
+            ok_handler(res, "Photo updated successfully", data);
+        } catch (error) { error_handler(error, req, res); }
     };
 };
 
-// Finalize email change (triggered by the link click)
-export const verifyEmailUpdate = (): RequestHandler => {
-    return async (req: Request, res: Response): Promise<void> => {
-        try {
-            const { token } = req.query; // Usually passed as ?token=...
-            if (!token) {
-                throw new MissingParameterException("Verification token is missing");
-            }
-
-            const data = await ProviderService.verifyEmailUpdate(token as string);
-            ok_handler(res, "Email verified successfully", data);
-        } catch (error) {
-            error_handler(error, req, res);
-        }
-    };
-};
-
-
-// Update phone number using OTP verification
-export const changeNumber = (): RequestHandler => {
-    return async (req: Request, res: Response): Promise<void> => {
-        try {
-            if (!req.providerProfile) {
-                throw new UnauthorizedAccessException("Unauthorized");
-            }
-
-            const data = await ProviderService.changeNumber(
-                req.providerProfile._id.toString(),
-                req.body
-            );
-
-            ok_handler(res, "Phone number updated successfully", data);
-        } catch (error) {
-            error_handler(error, req, res);
-        }
-    };
-};
-
-// Update bio
 export const updateBio = (): RequestHandler => {
     return async (req: Request, res: Response): Promise<void> => {
         try {
             if (!req.providerProfile) {
                 throw new UnauthorizedAccessException("Unauthorized");
             }
-
-            const data = await ProviderService.updateBio(
-                req.providerProfile._id.toString(),
-                req.body
-            );
-
-            ok_handler(res, "Bio updated successfully", data);
-        } catch (error) {
-            error_handler(error, req, res);
-        }
+            const data = await ProviderService.updateBio(req.providerProfile!._id.toString(), req.body);
+            ok_handler(res, "Bio updated", data);
+        } catch (error) { error_handler(error, req, res); }
     };
 };
 
+export const changeEmail = () => async (req: Request, res: Response) => {
+    try {
+        if (!req.providerProfile) {
+            throw new UnauthorizedAccessException("Unauthorized");
+        }
+        const data = await ProviderService.changeEmail(req.providerProfile!._id.toString(), req.body);
+        ok_handler(res, "Verification link sent", data);
+    } catch (error) { error_handler(error, req, res); }
+};
 
+export const verifyEmailUpdate = () => async (req: Request, res: Response) => {
+    try {
+        const data = await ProviderService.verifyEmailUpdate(req.query.token as string);
+        ok_handler(res, "Email verified", data);
+    } catch (error) { error_handler(error, req, res); }
+};
+
+export const changeNumber = () => async (req: Request, res: Response) => {
+    try {
+        if (!req.providerProfile) {
+            throw new UnauthorizedAccessException("Unauthorized");
+        }
+        const data = await ProviderService.changeNumber(req.providerProfile!._id.toString(), req.body);
+        ok_handler(res, "Phone updated", data);
+    } catch (error) { error_handler(error, req, res); }
+};
+
+// --- SECTION 3: LOGISTICS (GEOSPATIAL & DELIVERY) ---
+
+export const updateDeliveryMode = () => async (req: Request, res: Response) => {
+    try {
+        if (!req.providerProfile) {
+            throw new UnauthorizedAccessException("Unauthorized");
+        }
+        const data = await ProviderService.updateDeliveryMode(req.providerProfile!._id.toString(), req.body);
+        ok_handler(res, "Delivery modes updated", data);
+    } catch (error) { error_handler(error, req, res); }
+};
+
+export const updateShopLocation = () => async (req: Request, res: Response) => {
+    try {
+        if (!req.providerProfile) {
+            throw new UnauthorizedAccessException("Unauthorized");
+        }
+        const data = await ProviderService.updateShopLocation(req.providerProfile!._id.toString(), req.body);
+        ok_handler(res, "Shop address updated", data);
+    } catch (error) { error_handler(error, req, res); }
+};
+
+export const updateServiceArea = () => async (req: Request, res: Response) => {
+    try {
+        if (!req.providerProfile) {
+            throw new UnauthorizedAccessException("Unauthorized");
+        }
+        const data = await ProviderService.updateServiceArea(req.providerProfile!._id.toString(), req.body);
+        ok_handler(res, "Service radius updated", data);
+    } catch (error) { error_handler(error, req, res); }
+};
+
+// --- SECTION 4: OPERATIONS (DASHBOARD, AVAILABILITY, SERVICES) ---
+
+export const getDashboardData = () => async (req: Request, res: Response) => {
+    try {
+        if (!req.providerProfile) {
+            throw new UnauthorizedAccessException("Unauthorized");
+        }
+        const data = await ProviderService.fetchDashboardData(req.providerProfile!._id.toString());
+        ok_handler(res, "Dashboard data loaded", data);
+    } catch (error) { error_handler(error, req, res); }
+};
+
+export const toggleAvailability = () => async (req: Request, res: Response) => {
+    try {
+        if (!req.providerProfile) {
+            throw new UnauthorizedAccessException("Unauthorized");
+        }
+        const data = await ProviderService.toggleAvailability(req.providerProfile!._id.toString());
+        ok_handler(res, "Availability status toggled", data);
+    } catch (error) { error_handler(error, req, res); }
+};
+
+export const updateAvailability = () => async (req: Request, res: Response) => {
+    try {
+        if (!req.providerProfile) {
+            throw new UnauthorizedAccessException("Unauthorized");
+        }
+        const data = await ProviderService.updateAvailability(req.providerProfile!._id.toString(), req.body);
+        ok_handler(res, "Weekly schedule updated", data);
+    } catch (error) { error_handler(error, req, res); }
+};
+
+export const updateServices = () => async (req: Request, res: Response) => {
+    try {
+        if (!req.providerProfile) {
+            throw new UnauthorizedAccessException("Unauthorized");
+        }
+        const data = await ProviderService.updateServices(req.providerProfile!._id.toString(), req.body);
+        ok_handler(res, "Service list updated", data);
+    } catch (error) { error_handler(error, req, res); }
+};

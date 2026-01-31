@@ -1,6 +1,6 @@
 import { SearchPayload } from '../types/consumer';
 import { getDirections } from '../utils/routeDirection.utils';
-import { IProviderProfile, Provider } from '../models/provider.model';
+import { IAvailabilityDay, IProviderProfile, Provider, Services } from '../models/provider.model';
 import mongoose, { Types } from 'mongoose';
 import { createProviderProfilePayload } from '../types/providers.types';
 import Exception from '../exceptions/Exception';
@@ -15,6 +15,7 @@ import { hashOtp } from '../utils/otp.utils';
 import { JwtService } from './jwt.service';
 import MissingParameterException from '../exceptions/MissingParameterException';
 import BadRequestException from '../exceptions/BadRequestException';
+import { CloudinaryService } from './cloudinary.service';
 
 
 class ProviderServiceClass {
@@ -98,6 +99,17 @@ class ProviderServiceClass {
         const basePriceFrom = services.length > 0
             ? Math.min(...services.map(s => s.price))
             : 0;
+
+
+        availability.forEach(day => {
+            if (!day.isClosed) {
+                day.slots.forEach(slot => {
+                    if (slot.start >= slot.end) {
+                        throw new BadRequestException(`Invalid time slot for day ${day.dayOfWeek}: Start must be before End.`);
+                    }
+                });
+            }
+        });
 
         const profileData: Partial<IProviderProfile> = {
             userId: user._id,
@@ -254,6 +266,34 @@ class ProviderServiceClass {
     /**
  * Service Methods  account personal info management
 */
+
+    public async updateProfilePhoto(payload: {
+        providerId: string,
+        profilePicture: string
+    }) {
+        const { providerId, profilePicture } = payload;
+
+        const provider = await Provider.findById(providerId).select('profilePicture');
+
+        if (!provider) {
+            throw new ResourceNotFoundException("Provider profile not found");
+        }
+
+        const oldPhotoUrl = provider.profilePicture;
+
+        provider.profilePicture = profilePicture;
+        await provider.save();
+
+        if (oldPhotoUrl && oldPhotoUrl !== profilePicture) {
+            CloudinaryService.deleteImage(oldPhotoUrl).catch(err => console.error(err));
+        }
+
+        return {
+            message: "Profile photo updated successfully",
+            profilePicture: provider.profilePicture
+        };
+    }
+
     /**
      * Updates the names on profile.
      */
@@ -457,6 +497,189 @@ class ProviderServiceClass {
             message: "Bio updated successfully",
         };
     }
+
+    /**
+     * Updates the list of services offered by the provider.
+     * Automatically syncs the basePriceFrom to the cheapest service.
+     */
+    public async updateServices(providerId: string, payload: Services[]) {
+
+        if (!payload || !Array.isArray(payload)) {
+            throw new BadRequestException("Services must be an array");
+        }
+
+        if (payload.length === 0) {
+            throw new BadRequestException("You must offer at least one service");
+        }
+
+        const cleanedServices = payload.map(service => ({
+            name: service.name.trim(),
+            value: service.value.trim().toLowerCase(),
+            price: Math.max(0, service.price)
+        }));
+
+        // Calculate the new 'basePriceFrom'
+        const minPrice = Math.min(...cleanedServices.map(s => s.price));
+
+
+        //  Update the Profile
+        const updatedProfile = await Provider.findByIdAndUpdate(
+            providerId,
+            {
+                services: cleanedServices,
+                basePriceFrom: minPrice
+            },
+            { new: true, runValidators: true }
+        );
+
+        if (!updatedProfile) {
+            throw new ResourceNotFoundException("Provider profile not found");
+        }
+
+        return {
+            message: "Services updated successfully",
+        }
+    }
+
+
+    /**
+    *  update delivery mode
+    */
+    public async updateDeliveryMode(providerId: string, payload: {
+        offersHomeService: boolean;
+        offersShopVisit: boolean;
+    }) {
+        const { offersHomeService, offersShopVisit } = payload;
+
+        if (!offersHomeService && !offersShopVisit) {
+            throw new BadRequestException("You must offer at least one delivery mode (Home Service or Shop Visit).");
+        }
+
+        const updatedProfile = await Provider.findByIdAndUpdate(
+            providerId,
+            {
+                homeServiceAvailable: offersHomeService,
+                offersShopVisit
+            },
+            { new: true, runValidators: true }
+        );
+
+        if (!updatedProfile) throw new ResourceNotFoundException("Provider profile not found");
+
+        return { message: "Delivery modes updated successfully" };
+    }
+
+
+    /**
+     *  update shop location
+     *  If they update the address, they likely want to ensure shop visits are ON
+     */
+    public async updateShopLocation(providerId: string, payload: {
+        shopAddress: {
+            label: string;
+            formattedAddress: string;
+            city?: string;
+            state?: string;
+            latitude: number;
+            longitude: number;
+        };
+        offersShopVisit?: boolean;
+    }) {
+        const { shopAddress, offersShopVisit } = payload;
+
+        const updatedProfile = await Provider.findByIdAndUpdate(
+            providerId,
+            {
+                shopAddress: {
+                    address: shopAddress.formattedAddress,
+                    city: shopAddress.city,
+                    state: shopAddress.state,
+                    location: {
+                        type: 'Point',
+                        coordinates: [shopAddress.longitude, shopAddress.latitude]
+                    }
+                },
+                ...(offersShopVisit !== undefined && { offersShopVisit })
+            },
+            { new: true, runValidators: true }
+        );
+
+        if (!updatedProfile) throw new ResourceNotFoundException("Provider profile not found");
+
+        return { message: "Shop location updated" };
+    }
+
+
+    /**
+     *  update service rendering area
+     */
+    public async updateServiceArea(providerId: string, payload: {
+        serviceArea: {
+            formattedAddress: string;
+            center: { latitude: number; longitude: number };
+        };
+        radiusKm: number;
+    }) {
+        const { serviceArea, radiusKm } = payload;
+
+        const updatedProfile = await Provider.findByIdAndUpdate(
+            providerId,
+            {
+                serviceArea: {
+                    address: serviceArea.formattedAddress,
+                    location: {
+                        type: 'Point',
+                        coordinates: [serviceArea.center.longitude, serviceArea.center.latitude]
+                    },
+                    radiusKm: radiusKm
+                },
+                homeServiceAvailable: true
+            },
+            { new: true, runValidators: true }
+        );
+
+        if (!updatedProfile) throw new ResourceNotFoundException("Provider profile not found");
+
+        return { message: "Service area and radius updated" };
+    }
+
+    /**
+    * update  availaibility
+    */
+    public async updateAvailability(providerId: string, payload: {
+        availability: IAvailabilityDay[],
+        avgServiceTime: number
+    }) {
+        const { availability, avgServiceTime } = payload;
+
+        availability.forEach(day => {
+            if (!day.isClosed) {
+                day.slots.forEach(slot => {
+                    if (slot.start >= slot.end) {
+                        throw new BadRequestException(`Invalid time slot for day ${day.dayOfWeek}: Start must be before End.`);
+                    }
+                });
+            }
+        });
+
+        const updatedProfile = await Provider.findByIdAndUpdate(
+            providerId,
+            {
+                availability,
+                avgServiceTime
+            },
+            { new: true, runValidators: true }
+        );
+
+        if (!updatedProfile) throw new ResourceNotFoundException("Provider profile not found");
+
+        return { message: "Availability schedule updated" };
+    }
+
+
+
+
+
 
 
     /**
