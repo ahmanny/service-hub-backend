@@ -242,7 +242,7 @@ export const updatePayoutDetails = () => async (req: Request, res: Response) => 
         if (!req.providerProfile) {
             throw new UnauthorizedAccessException("Unauthorized");
         }
-        const data = await ProviderService.updateServices(req.providerProfile!._id.toString(), req.body);
+        const data = await ProviderService.updatePayoutDetails(req.providerProfile!._id.toString(), req.body);
         ok_handler(res, "Payout details updated successfully", data);
     } catch (error) { error_handler(error, req, res); }
 };
