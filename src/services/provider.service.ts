@@ -1,6 +1,6 @@
 import { SearchPayload } from '../types/consumer';
 import { getDirections } from '../utils/routeDirection.utils';
-import { IAvailabilityDay, IProviderProfile, Provider, Services } from '../models/provider.model';
+import { IAvailabilityDay, IPayoutDetails, IProviderProfile, Provider, Services } from '../models/provider.model';
 import mongoose, { Types } from 'mongoose';
 import { createProviderProfilePayload } from '../types/providers.types';
 import Exception from '../exceptions/Exception';
@@ -434,7 +434,6 @@ class ProviderServiceClass {
         if (!token) throw new Exception("Verification token is required");
 
         //  Decode the token (Using your JwtService)
-        // The token should contain { userId, newEmail }
         const decoded = JwtService.verify(token, 'access') as { id: string, newEmail: string };
 
         if (!decoded || !decoded.newEmail) {
@@ -674,6 +673,44 @@ class ProviderServiceClass {
         if (!updatedProfile) throw new ResourceNotFoundException("Provider profile not found");
 
         return { message: "Availability schedule updated" };
+    }
+
+
+    /**
+ * Updates the bank payout details for the provider.
+ */
+    public async updatePayoutDetails(providerId: string, payload: IPayoutDetails) {
+        const { bankCode, bankName, bankSlug, accountNumber, accountName } = payload;
+
+        if (!bankCode || !bankName || !bankSlug || !accountNumber || !accountName) {
+            throw new MissingParameterException("All bank account details are required for payout setup.");
+        }
+
+        const updatedProfile = await Provider.findByIdAndUpdate(
+            providerId,
+            {
+                payoutDetails: {
+                    bankCode,
+                    bankName,
+                    bankSlug,
+                    accountNumber,
+                    accountName,
+                    verifiedAt: new Date()
+                }
+            },
+            {
+                new: true,
+                runValidators: true
+            }
+        );
+
+        if (!updatedProfile) {
+            throw new ResourceNotFoundException("Provider profile not found");
+        }
+
+        return {
+            message: "Payout details updated successfully",
+        };
     }
 
 

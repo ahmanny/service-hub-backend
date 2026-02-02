@@ -26,6 +26,15 @@ export interface IAvailabilityDay {
     isClosed: boolean;
 }
 
+export interface IPayoutDetails {
+    bankCode: string;
+    bankName: string;
+    bankSlug: string;
+    accountNumber: string;
+    accountName: string;
+    verifiedAt?: Date;
+}
+
 // Interface
 export interface IProviderProfile {
     userId: Types.ObjectId;
@@ -62,6 +71,8 @@ export interface IProviderProfile {
     avgServiceTime: number;
     shopAddress?: IProviderShopAddress;
     availability: IAvailabilityDay[];
+
+    payoutDetails?: IPayoutDetails;
 }
 
 // Schemas
@@ -84,6 +95,18 @@ const ServiceSchema = new Schema<Services>(
         name: { type: String, required: true },
         value: { type: String, required: true },
         price: { type: Number, required: true, min: 0 },
+    },
+    { _id: false }
+);
+
+const PayoutDetailsSchema = new Schema<IPayoutDetails>(
+    {
+        bankCode: { type: String, required: true },
+        bankName: { type: String, required: true },
+        bankSlug: { type: String, required: true },
+        accountNumber: { type: String, required: true, trim: true },
+        accountName: { type: String, required: true, uppercase: true },
+        verifiedAt: { type: Date, default: Date.now }
     },
     { _id: false }
 );
@@ -149,7 +172,12 @@ const ProviderSchema = new Schema<IProviderProfile>(
             dayOfWeek: Number,
             slots: [{ start: String, end: String }],
             isClosed: { type: Boolean, default: false }
-        }]
+        }],
+
+        payoutDetails: {
+            type: PayoutDetailsSchema,
+            default: null
+        },
     },
     { timestamps: true }
 );

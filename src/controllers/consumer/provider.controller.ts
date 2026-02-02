@@ -235,3 +235,14 @@ export const updateServices = () => async (req: Request, res: Response) => {
         ok_handler(res, "Service list updated", data);
     } catch (error) { error_handler(error, req, res); }
 };
+
+
+export const updatePayoutDetails = () => async (req: Request, res: Response) => {
+    try {
+        if (!req.providerProfile) {
+            throw new UnauthorizedAccessException("Unauthorized");
+        }
+        const data = await ProviderService.updateServices(req.providerProfile!._id.toString(), req.body);
+        ok_handler(res, "Payout details updated successfully", data);
+    } catch (error) { error_handler(error, req, res); }
+};

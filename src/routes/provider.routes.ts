@@ -44,7 +44,10 @@ providerRoutes.patch('/update-profile-photo', upload.fields([
 ]),
     controller.updateProfilePhoto());
 
-
+/**
+ * FINANCIAL & PAYOUT MANAGEMENT
+ */
+providerRoutes.patch('/update-payout-details', controller.updatePayoutDetails());
 
 /**
  * LOGISTICS (GEOSPATIAL & DELIVERY) 
@@ -61,3 +64,5 @@ providerRoutes.get('/dashboard-data', controller.getDashboardData())
 providerRoutes.patch('/toggle-availability', controller.toggleAvailability());
 providerRoutes.patch('/update-services', controller.updateServices());
 providerRoutes.patch('/update-availability', controller.updateAvailability());
+
+
