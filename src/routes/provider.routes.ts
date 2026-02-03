@@ -2,6 +2,7 @@ import { Router } from 'express';
 import * as controller from '../controllers/consumer/provider.controller';
 import * as userController from '../controllers/user.controller';
 import { AuthMiddleware } from '../middlewares';
+import * as bankController from '../controllers/bank.controller';
 
 export const providerRoutes = Router();
 const authMiddleware = new AuthMiddleware();
@@ -48,7 +49,8 @@ providerRoutes.patch('/update-profile-photo', upload.fields([
  * FINANCIAL & PAYOUT MANAGEMENT
  */
 providerRoutes.patch('/update-payout-details', controller.updatePayoutDetails());
-
+providerRoutes.get('/banks', bankController.getSupportedBanks());
+providerRoutes.get('/resolve-bank', bankController.resolveBankAccount());
 /**
  * LOGISTICS (GEOSPATIAL & DELIVERY) 
 */
