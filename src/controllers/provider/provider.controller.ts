@@ -1,5 +1,5 @@
 import { Request, RequestHandler, Response } from "express";
-import { ProviderService } from "../../services/provider.service";
+import { ProviderService } from "../../services/provider/provider.service";
 import { error_handler, ok_handler } from "../../utils/response_handler";
 import MissingParameterException from "../../exceptions/MissingParameterException";
 import UnauthorizedAccessException from "../../exceptions/UnauthorizedAccessException";

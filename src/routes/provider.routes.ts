@@ -1,5 +1,6 @@
 import { Router } from 'express';
-import * as controller from '../controllers/consumer/provider.controller';
+import * as controller from '../controllers/provider/provider.controller';
+import * as earningController from '../controllers/provider/earnings.controller';
 import * as userController from '../controllers/user.controller';
 import { AuthMiddleware } from '../middlewares';
 import * as bankController from '../controllers/bank.controller';
@@ -68,3 +69,4 @@ providerRoutes.patch('/update-services', controller.updateServices());
 providerRoutes.patch('/update-availability', controller.updateAvailability());
 
 
+providerRoutes.get('/earnings-dashboard', earningController.getEarningsDashboard());

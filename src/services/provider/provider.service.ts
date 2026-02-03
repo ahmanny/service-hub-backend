@@ -1,21 +1,19 @@
-import { SearchPayload } from '../types/consumer';
-import { getDirections } from '../utils/routeDirection.utils';
-import { IAvailabilityDay, IPayoutDetails, IProviderProfile, Provider, Services } from '../models/provider.model';
+import { IAvailabilityDay, IPayoutDetails, IProviderProfile, Provider, Services } from '../../models/provider.model';
 import mongoose, { Types } from 'mongoose';
-import { createProviderProfilePayload } from '../types/providers.types';
-import Exception from '../exceptions/Exception';
-import { User } from '../models/user.model';
-import ResourceNotFoundException from '../exceptions/ResourceNotFoundException';
+import { createProviderProfilePayload } from '../../types/providers.types';
+import Exception from '../../exceptions/Exception';
+import { User } from '../../models/user.model';
+import ResourceNotFoundException from '../../exceptions/ResourceNotFoundException';
 import { startOfDay, endOfDay } from "date-fns";
-import { Booking } from '../models/booking.model';
-import { OtpSession } from '../models/otp.model';
-import TooManyAttemptsException from '../exceptions/TooManyAttemptsException';
-import { BLOCK_DURATION_HOURS, MAX_VERIFY_ATTEMPTS } from '../configs/otpPolicy';
-import { hashOtp } from '../utils/otp.utils';
-import { JwtService } from './jwt.service';
-import MissingParameterException from '../exceptions/MissingParameterException';
-import BadRequestException from '../exceptions/BadRequestException';
-import { CloudinaryService } from './cloudinary.service';
+import { Booking } from '../../models/booking.model';
+import { OtpSession } from '../../models/otp.model';
+import TooManyAttemptsException from '../../exceptions/TooManyAttemptsException';
+import { BLOCK_DURATION_HOURS, MAX_VERIFY_ATTEMPTS } from '../../configs/otpPolicy';
+import { hashOtp } from '../../utils/otp.utils';
+import { JwtService } from '../jwt.service';
+import MissingParameterException from '../../exceptions/MissingParameterException';
+import BadRequestException from '../../exceptions/BadRequestException';
+import { CloudinaryService } from '../cloudinary.service';
 
 
 class ProviderServiceClass {
