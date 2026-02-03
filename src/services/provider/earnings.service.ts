@@ -2,30 +2,36 @@ import { Booking } from "../../models/booking.model";
 import { Types } from "mongoose";
 import dayjs from "dayjs";
 
-
 class EarningsServiceClass {
-    constructor() {
-        // super()
-    }
-
     public async getProviderEarnings(providerId: string) {
         const pId = new Types.ObjectId(providerId);
-        const startOfMonth = dayjs().startOf('month').toDate();
 
-        // Get Completed Bookings for this month
-        const monthlyBookings = await Booking.find({
+        //  Get ALL Completed Bookings for "All Time" stats
+        // This ensures jobsCompleted and total calculations are accurate
+        const allCompletedBookings = await Booking.find({
             providerId: pId,
-            status: 'completed',
-            completedAt: { $gte: startOfMonth }
-        }).populate("consumerId", "firstName lastName");
+            status: 'completed'
+        })
+            .populate("consumerId", "firstName lastName")
+            .sort({ completedAt: -1 }); // Newest first
 
-        //  Calculations
-        const totalMonthly = monthlyBookings.reduce((acc, curr) => acc + (curr.price.total - (curr.price.platformFee || 0)), 0);
-        const jobsCompleted = monthlyBookings.length;
-        const avgPerJob = jobsCompleted > 0 ? totalMonthly / jobsCompleted : 0;
+        // Calculations
+        // Jobs Completed: All time
+        const jobsCompleted = allCompletedBookings.length;
 
-        //  Transactions Mapping (Net = Total - PlatformFee)
-        const transactions = monthlyBookings.map(b => ({
+        // Total Earnings: Let's make this "Total Lifetime Earnings" or "This Month"
+        // For your UI "Total Monthly", we filter the all-time list in memory:
+        const startOfMonth = dayjs().startOf('month');
+        const totalMonthly = allCompletedBookings
+            .filter(b => dayjs(b.completedAt).isAfter(startOfMonth))
+            .reduce((acc, curr) => acc + (curr.price.total - (curr.price.platformFee || 0)), 0);
+
+        const avgPerJob = jobsCompleted > 0
+            ? allCompletedBookings.reduce((acc, curr) => acc + (curr.price.total - (curr.price.platformFee || 0)), 0) / jobsCompleted
+            : 0;
+
+        // Transactions Mapping
+        const transactions = allCompletedBookings.map(b => ({
             id: b._id,
             title: b.serviceName,
             client: (b.consumerId as any)?.firstName + " " + (b.consumerId as any)?.lastName,
@@ -33,17 +39,17 @@ class EarningsServiceClass {
             fee: b.price.platformFee || 0,
             date: dayjs(b.completedAt).format('DD MMM'),
             status: 'Completed'
-        })).reverse().slice(0, 10); // Last 10
+        })).slice(0, 10);
 
-        // Chart Data (Last 7 Days)
+        //  Chart Data (Last 7 Days)
         const chartData = await this.getChartData(pId);
 
         return {
             totalMonthly,
-            growth: 0, // can calculate this by comparing to last month later
+            growth: 0,
             jobsCompleted,
             avgPerJob,
-            availableBalance: totalMonthly, // Logic depends on your payout cycle
+            availableBalance: totalMonthly,
             pendingBalance: 0,
             nextPayout: "Friday • 6:00 PM",
             chartData,
@@ -71,16 +77,16 @@ class EarningsServiceClass {
             { $sort: { "_id": 1 } }
         ]);
 
-        // Ensure we return an array of 7 numbers, even if some days have 0 earnings
         const last7Days = Array.from({ length: 7 }).map((_, i) => {
-            const date = dayjs().subtract(6 - i, 'days').format('YYYY-MM-DD');
-            const dayData = stats.find(s => s._id === date);
+            const dateObj = dayjs().subtract(6 - i, 'days');
+            const dateStr = dateObj.format('YYYY-MM-DD');
+            const dayData = stats.find(s => s._id === dateStr);
+
             return dayData ? dayData.dailyNet : 0;
         });
 
         return last7Days;
     }
-
 }
 
 export const EarningsService = new EarningsServiceClass();
