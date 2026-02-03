@@ -11,7 +11,7 @@ import { RefreshToken } from "../models/refresh-token.model";
 import ResourceNotFoundException from "../exceptions/ResourceNotFoundException";
 import MissingParameterException from "../exceptions/MissingParameterException";
 import { ConsumerService } from "./consumer.service";
-import { ProviderService } from "./provider.service";
+import { ProviderService } from "./provider/provider.service";
 
 
 
