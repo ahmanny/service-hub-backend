@@ -8,6 +8,7 @@ import { IProviderShopAddress, Provider } from "../models/provider.model";
 import { CreateBookingPayload, fetchBookingsPayload } from "../types/booking.type";
 import { Consumer } from "../models/consumer.model";
 import { WalletService } from "./wallet/wallet.service";
+import mongoose from "mongoose";
 
 class BookingServiceClass {
     constructor() {
@@ -298,143 +299,154 @@ class BookingServiceClass {
     }) {
         const { bookingId, action, reason, newScheduledAt, userId } = payload;
 
-        const booking = await Booking.findById(bookingId);
-        if (!booking) throw new ResourceNotFoundException("This booking record no longer exists.");
+        // Start the session
+        const session = await mongoose.startSession();
+        session.startTransaction();
+        try {
 
-        const isProvider = booking.providerId.toString() === userId;
-        const isConsumer = booking.consumerId.toString() === userId;
+            const booking = await Booking.findById(bookingId).session(session);
+            if (!booking) throw new ResourceNotFoundException("Booking not found.");
 
-        switch (action) {
-            case "accept":
-                if (!isProvider) {
-                    throw new ForbiddenAccessException("Only the service provider can accept this booking.");
-                }
-                if (booking.status !== "pending") {
-                    throw new Exception(`Cannot accept a booking that is already ${booking.status}.`);
-                }
-                booking.status = "accepted";
-                booking.acceptedAt = new Date();
-                break;
+            const isProvider = booking.providerId.toString() === userId;
+            const isConsumer = booking.consumerId.toString() === userId;
 
-            case "decline":
-                if (!isProvider) {
-                    throw new ForbiddenAccessException("Only the service provider can decline this request.");
-                }
-                booking.status = "declined";
-                booking.declinedAt = new Date();
-                booking.declineReason = reason || "Provider declined the request.";
-                break;
+            switch (action) {
+                case "accept":
+                    if (!isProvider) {
+                        throw new ForbiddenAccessException("Only the service provider can accept this booking.");
+                    }
+                    if (booking.status !== "pending") {
+                        throw new Exception(`Cannot accept a booking that is already ${booking.status}.`);
+                    }
+                    booking.status = "accepted";
+                    booking.acceptedAt = new Date();
+                    break;
 
-            case "cancel":
-                if (!isProvider && !isConsumer) {
-                    throw new ForbiddenAccessException("You do not have permission to cancel this booking.");
-                }
-                if (booking.status === "completed") {
-                    throw new Exception("Cannot cancel a booking that is already marked as completed.");
-                }
-                booking.status = "cancelled";
-                booking.cancelledAt = new Date();
-                booking.cancelMessage = reason || `Cancelled by ${isProvider ? 'provider' : 'user'}.`;
-                break;
+                case "decline":
+                    if (!isProvider) {
+                        throw new ForbiddenAccessException("Only the service provider can decline this request.");
+                    }
+                    booking.status = "declined";
+                    booking.declinedAt = new Date();
+                    booking.declineReason = reason || "Provider declined the request.";
+                    break;
 
-            case "reschedule":
-                if (!isConsumer) {
-                    throw new ForbiddenAccessException("Currently, only customers can initiate a reschedule.");
-                }
-                if (!newScheduledAt) {
-                    throw new MissingParameterException("Please select a new date and time.");
-                }
+                case "cancel":
+                    if (!isProvider && !isConsumer) {
+                        throw new ForbiddenAccessException("You do not have permission to cancel this booking.");
+                    }
+                    if (booking.status === "completed") {
+                        throw new Exception("Cannot cancel a booking that is already marked as completed.");
+                    }
+                    booking.status = "cancelled";
+                    booking.cancelledAt = new Date();
+                    booking.cancelMessage = reason || `Cancelled by ${isProvider ? 'provider' : 'user'}.`;
+                    break;
 
-                const newDate = new Date(newScheduledAt);
-                const startWindow = new Date(newDate);
-                startWindow.setSeconds(0, 0);
+                case "reschedule":
+                    if (!isConsumer) {
+                        throw new ForbiddenAccessException("Currently, only customers can initiate a reschedule.");
+                    }
+                    if (!newScheduledAt) {
+                        throw new MissingParameterException("Please select a new date and time.");
+                    }
 
-                const endWindow = new Date(newDate);
-                endWindow.setSeconds(59, 999);
+                    const newDate = new Date(newScheduledAt);
+                    const startWindow = new Date(newDate);
+                    startWindow.setSeconds(0, 0);
 
-                const isTaken = await Booking.findOne({
-                    providerId: booking.providerId,
-                    scheduledAt: {
-                        $gte: startWindow,
-                        $lte: endWindow
-                    },
-                    status: { $in: ["pending", "accepted", "confirmed"] },
-                    _id: { $ne: booking._id }
-                });
+                    const endWindow = new Date(newDate);
+                    endWindow.setSeconds(59, 999);
 
-                if (isTaken) {
-                    throw new Exception("The new time slot is already booked by someone else.");
-                }
+                    const isTaken = await Booking.findOne({
+                        providerId: booking.providerId,
+                        scheduledAt: {
+                            $gte: startWindow,
+                            $lte: endWindow
+                        },
+                        status: { $in: ["pending", "accepted", "confirmed"] },
+                        _id: { $ne: booking._id }
+                    });
 
-                // Update the booking details
-                booking.scheduledAt = newDate;
-                booking.rescheduledAt = new Date();
+                    if (isTaken) {
+                        throw new Exception("The new time slot is already booked by someone else.");
+                    }
 
-                booking.status = "pending";
+                    // Update the booking details
+                    booking.scheduledAt = newDate;
+                    booking.rescheduledAt = new Date();
 
-                booking.deadlineAt = this.calculateDeadline(newDate);
+                    booking.status = "pending";
 
-                break;
+                    booking.deadlineAt = this.calculateDeadline(newDate);
 
-            case "start":
-                // only providers can start a booking
-                if (!isProvider) {
-                    throw new ForbiddenAccessException("Only the provider can start this service.");
-                }
+                    break;
 
-                // can only start an accpeted booking and not a booking thats already in progress
-                if (booking.status === "in_progress") {
-                    throw new Exception("Service is already in progress.");
-                }
+                case "start":
+                    // only providers can start a booking
+                    if (!isProvider) {
+                        throw new ForbiddenAccessException("Only the provider can start this service.");
+                    }
 
-                if (booking.status !== "accepted") {
-                    throw new Exception(`Cannot start a service that is ${booking.status}.`);
-                }
+                    // can only start an accpeted booking and not a booking thats already in progress
+                    if (booking.status === "in_progress") {
+                        throw new Exception("Service is already in progress.");
+                    }
 
-                booking.status = "in_progress";
-                booking.actualStartTime = new Date();
-                // Manually started by provider and not by the system
-                booking.autoStarted = false;
-                break;
+                    if (booking.status !== "accepted") {
+                        throw new Exception(`Cannot start a service that is ${booking.status}.`);
+                    }
 
-            case "complete":
-                if (!isProvider) {
-                    throw new ForbiddenAccessException("Only the provider can mark this as completed.");
-                }
+                    booking.status = "in_progress";
+                    booking.actualStartTime = new Date();
+                    // Manually started by provider and not by the system
+                    booking.autoStarted = false;
+                    break;
 
-                if (booking.status !== "in_progress") {
-                    throw new Exception("Only in-progress services can be marked as completed.");
-                }
+                case "complete":
+                    if (!isProvider) {
+                        throw new ForbiddenAccessException("Only the provider can mark this as completed.");
+                    }
 
-                booking.status = "completed";
-                booking.completedAt = new Date();
+                    if (booking.status !== "in_progress") {
+                        throw new Exception("Only in-progress services can be marked as completed.");
+                    }
 
-                await WalletService.handleJobCompletion(booking);
+                    booking.status = "completed";
+                    booking.completedAt = new Date();
 
-                break;
+                    await WalletService.handleJobCompletion(booking, session);
 
+                    break;
+
+            }
+
+            await booking.save({ session });
+            await session.commitTransaction();
+            // Fetch related names for the notification
+            const [consumer, provider] = await Promise.all([
+                Consumer.findById(booking.consumerId).select('firstName lastName').lean(),
+                Provider.findById(booking.providerId).select('firstName lastName').lean()
+            ]);
+
+            const consumerName = consumer ? `${consumer.firstName} ${consumer.lastName}` : "A client";
+            const providerName = provider ? `${provider.firstName} ${provider.lastName}` : "A provider";
+
+            return {
+                ...booking.toObject(),
+                bookingId: booking._id.toString(),
+                consumerId: booking.consumerId.toString(),
+                providerId: booking.providerId.toString(),
+                consumerName,
+                providerName,
+                serviceName: booking.serviceName
+            };
+        } catch (error) {
+            await session.abortTransaction();
+            throw error;
+        } finally {
+            session.endSession();
         }
-
-        await booking.save();
-
-        // Fetch related names for the notification
-        const [consumer, provider] = await Promise.all([
-            Consumer.findById(booking.consumerId).select('firstName lastName').lean(),
-            Provider.findById(booking.providerId).select('firstName lastName').lean()
-        ]);
-
-        const consumerName = consumer ? `${consumer.firstName} ${consumer.lastName}` : "A client";
-        const providerName = provider ? `${provider.firstName} ${provider.lastName}` : "A provider";
-
-        return {
-            ...booking.toObject(),
-            bookingId: booking._id.toString(),
-            consumerId: booking.consumerId.toString(),
-            providerId: booking.providerId.toString(),
-            consumerName,
-            providerName,
-            serviceName: booking.serviceName
-        };
     }
 
     public async getRescheduleData(bookingId: string, userId: string) {
