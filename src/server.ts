@@ -1,14 +1,13 @@
 import express, { Express, NextFunction, Request, Response } from 'express';
 import cookieParser from 'cookie-parser';
 import cors from 'cors';
-import createError from 'http-errors';
 import helmet from 'helmet';
 import mongoose from 'mongoose';
 import morgan from 'morgan';
 import routes from './routes';
 import type { TServerConfig } from './types';
 import multer from 'multer';
-import { initCronJobs } from './cron/booking.cron';
+import { initCronJobs } from './cron';
 
 
 const upload = multer()

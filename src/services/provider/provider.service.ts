@@ -14,6 +14,7 @@ import { JwtService } from '../jwt.service';
 import MissingParameterException from '../../exceptions/MissingParameterException';
 import BadRequestException from '../../exceptions/BadRequestException';
 import { CloudinaryService } from '../cloudinary.service';
+import { Wallet } from '../../models/wallet.model';
 
 
 class ProviderServiceClass {
@@ -153,8 +154,28 @@ class ProviderServiceClass {
 
         const profile = await this.fetchProfile(user._id)
 
-        console.log("[Debugging]", profile)
+        const providerProfileId = profile.profile?._id;
 
+        if (!providerProfileId) {
+            throw new Exception("Failed to create provider profile");
+        }
+        await Wallet.findOneAndUpdate(
+            { providerId: providerProfileId },
+            {
+                $setOnInsert: {
+                    providerId: providerProfileId,
+                    availableBalance: 0,
+                    pendingBalance: 0,
+                    totalEarned: 0,
+                    currency: "NGN"
+                }
+            },
+            {
+                upsert: true,
+                new: true,
+                setDefaultsOnInsert: true
+            }
+        );
 
         return { profile }
     }

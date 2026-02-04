@@ -7,6 +7,7 @@ import { Booking, IBooking } from "../models/booking.model";
 import { IProviderShopAddress, Provider } from "../models/provider.model";
 import { CreateBookingPayload, fetchBookingsPayload } from "../types/booking.type";
 import { Consumer } from "../models/consumer.model";
+import { WalletService } from "./wallet/wallet.service";
 
 class BookingServiceClass {
     constructor() {
@@ -407,6 +408,8 @@ class BookingServiceClass {
 
                 booking.status = "completed";
                 booking.completedAt = new Date();
+
+                await WalletService.handleJobCompletion(booking);
 
                 break;
 

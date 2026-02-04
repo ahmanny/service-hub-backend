@@ -1,87 +1,91 @@
 import { Booking } from "../../models/booking.model";
 import { Types } from "mongoose";
 import dayjs from "dayjs";
+import { Wallet } from "../../models/wallet.model";
+import { Transaction } from "../../models/transaction.model";
 
 class EarningsServiceClass {
     public async getProviderEarnings(providerId: string) {
         const pId = new Types.ObjectId(providerId);
 
-        //  Get ALL Completed Bookings for "All Time" stats
-        // This ensures jobsCompleted and total calculations are accurate
-        const allCompletedBookings = await Booking.find({
+        //  Fetch the Wallet 
+        const wallet = await Wallet.findOne({ providerId: pId });
+
+        // Get All-Time Completed Jobs Count
+        const jobsCompleted = await Booking.countDocuments({
             providerId: pId,
-            status: 'completed'
-        })
-            .populate("consumerId", "firstName lastName")
-            .sort({ completedAt: -1 }); // Newest first
+            status: "completed",
+        });
 
-        // Calculations
-        // Jobs Completed: All time
-        const jobsCompleted = allCompletedBookings.length;
+        //  Get Recent Ledger Transactions
+        const recentTransactions = await Transaction.find({ providerId: pId })
+            .sort({ createdAt: -1 })
+            .limit(10);
 
-        // Total Earnings: Let's make this "Total Lifetime Earnings" or "This Month"
-        // For your UI "Total Monthly", we filter the all-time list in memory:
-        const startOfMonth = dayjs().startOf('month');
-        const totalMonthly = allCompletedBookings
-            .filter(b => dayjs(b.completedAt).isAfter(startOfMonth))
-            .reduce((acc, curr) => acc + (curr.price.total - (curr.price.platformFee || 0)), 0);
+        const transactions = recentTransactions.map((t) => ({
+            id: t._id,
+            title: t.description,
+            net: t.amount,
+            status: t.status,
+            date: dayjs(t.createdAt).format("DD MMM"),
+            type: t.type,
+        }));
 
-        const avgPerJob = jobsCompleted > 0
-            ? allCompletedBookings.reduce((acc, curr) => acc + (curr.price.total - (curr.price.platformFee || 0)), 0) / jobsCompleted
-            : 0;
+        // Monthly Earnings (Still aggregated for the stat card)
+        const startOfMonth = dayjs().startOf("month").toDate();
+        const monthlyStats = await Transaction.aggregate([
+            {
+                $match: {
+                    providerId: pId,
+                    status: "completed",
+                    purpose: "booking_revenue",
+                    createdAt: { $gte: startOfMonth },
+                },
+            },
+            { $group: { _id: null, total: { $sum: "$amount" } } },
+        ]);
 
-        // Transactions Mapping
-        const transactions = allCompletedBookings.map(b => ({
-            id: b._id,
-            title: b.serviceName,
-            client: (b.consumerId as any)?.firstName + " " + (b.consumerId as any)?.lastName,
-            net: b.price.total - (b.price.platformFee || 0),
-            fee: b.price.platformFee || 0,
-            date: dayjs(b.completedAt).format('DD MMM'),
-            status: 'Completed'
-        })).slice(0, 10);
-
-        //  Chart Data (Last 7 Days)
+        const totalMonthly = monthlyStats[0]?.total || 0;
         const chartData = await this.getChartData(pId);
 
         return {
             totalMonthly,
             growth: 0,
             jobsCompleted,
-            avgPerJob,
-            availableBalance: totalMonthly,
-            pendingBalance: 0,
+            avgPerJob: jobsCompleted > 0 ? (wallet?.totalEarned || 0) / jobsCompleted : 0,
+            availableBalance: wallet?.availableBalance || 0,
+            pendingBalance: wallet?.pendingBalance || 0,
             nextPayout: "Friday • 6:00 PM",
             chartData,
-            transactions
+            transactions,
         };
     }
 
     private async getChartData(providerId: Types.ObjectId) {
         const sevenDaysAgo = dayjs().subtract(6, 'days').startOf('day').toDate();
 
-        const stats = await Booking.aggregate([
+        // Use Transaction model instead of Booking for the chart
+        const stats = await Transaction.aggregate([
             {
                 $match: {
                     providerId,
-                    status: 'completed',
-                    completedAt: { $gte: sevenDaysAgo }
+                    status: { $in: ['pending', 'completed'] }, // Include pending so the chart fills up immediately
+                    purpose: 'booking_revenue',
+                    createdAt: { $gte: sevenDaysAgo }
                 }
             },
             {
                 $group: {
-                    _id: { $dateToString: { format: "%Y-%m-%d", date: "$completedAt" } },
-                    dailyNet: { $sum: { $subtract: ["$price.total", "$price.platformFee"] } }
+                    _id: { $dateToString: { format: "%Y-%m-%d", date: "$createdAt" } },
+                    dailyNet: { $sum: "$amount" }
                 }
             },
             { $sort: { "_id": 1 } }
         ]);
 
         const last7Days = Array.from({ length: 7 }).map((_, i) => {
-            const dateObj = dayjs().subtract(6 - i, 'days');
-            const dateStr = dateObj.format('YYYY-MM-DD');
+            const dateStr = dayjs().subtract(6 - i, 'days').format('YYYY-MM-DD');
             const dayData = stats.find(s => s._id === dateStr);
-
             return dayData ? dayData.dailyNet : 0;
         });
 
