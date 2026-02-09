@@ -1,10 +1,11 @@
-import mongoose, { Schema, Types } from "mongoose";
+import mongoose, { Document, Schema, Types } from "mongoose";
 import { GeoAddress, GeoPointSchema } from "./schemas/geoPoint.schema";
 import { IProviderShopAddress } from "./provider.model";
+import { BookingStatus, PaymentStatus, PayoutStatus } from "../types/booking.types";
 
 
 
-export interface IBooking {
+export interface IBooking extends Document {
     consumerId: Types.ObjectId;
     providerId: Types.ObjectId;
 
@@ -45,11 +46,21 @@ export interface IBooking {
     cancelMessage?: string;
 
 
-    status: "pending" | "accepted" | "declined" | "completed" | "cancelled" | "expired" | "in_progress";
+    status: BookingStatus;
+    paymentStatus: PaymentStatus;
+    payoutStatus: PayoutStatus;
+    completionPendingAt?: Date;
+    disputeDeadline?: Date;
+    disputeId?: Types.ObjectId;
 
     actualStartTime?: Date;
     autoStarted: boolean; // True if the cron job moved it to in_progress
     isDisputed: boolean;  // If the customer flags a no-show
+
+    reminders: {
+        oneHourSent: boolean,
+        lateWarningSent: boolean
+    }
 
     createdAt?: Date;
     updatedAt?: Date;
@@ -145,14 +156,31 @@ const BookingSchema = new Schema<IBooking>(
 
         status: {
             type: String,
-            enum: ["pending", "accepted", "declined", "completed", "cancelled", "expired", "in_progress"],
-            default: "pending",
-            index: true,
+            enum: Object.values(BookingStatus),
+            default: BookingStatus.PENDING
         },
+        paymentStatus: {
+            type: String,
+            enum: Object.values(PaymentStatus),
+            default: PaymentStatus.PENDING
+        },
+        payoutStatus: {
+            type: String,
+            enum: Object.values(PayoutStatus),
+            default: PayoutStatus.PENDING
+        },
+        completionPendingAt: { type: Date },
+        disputeDeadline: { type: Date },
+        disputeId: { type: Schema.Types.ObjectId, ref: 'Dispute' },
 
         actualStartTime: { type: Date },
         autoStarted: { type: Boolean, default: false },
         isDisputed: { type: Boolean, default: false },
+
+        reminders: {
+            oneHourSent: { type: Boolean, default: false },
+            lateWarningSent: { type: Boolean, default: false }
+        },
 
         deadlineAt: {
             type: Date,

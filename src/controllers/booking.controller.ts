@@ -116,68 +116,29 @@ export const handleBookingAction = (): RequestHandler => {
     return async (req: Request, res: Response): Promise<void> => {
         try {
             const { bookingId } = req.params;
-            const { action, reason, newScheduledAt } = req.body;
+            const { action, reason, newScheduledAt, disputeReason } = req.body;
 
-            // Identify who is making the request
-            const isProvider = Boolean(req.providerProfile);
             const actorProfile = req.providerProfile || req.consumerProfile;
+            if (!actorProfile) throw new UnauthorizedAccessException("Identity not found");
 
-            if (!actorProfile) {
-                throw new UnauthorizedAccessException("Identity not found");
-            }
-
+            // All logic, including notifications, happens inside the service
             const data = await BookingService.updateBookingStatus({
                 bookingId,
                 action,
                 reason,
                 newScheduledAt,
+                disputeReason,
                 userId: actorProfile._id.toString(),
             });
-
-            const targetType = isProvider ? 'consumer' : 'provider';
-            const targetId = isProvider ? data.consumerId : data.providerId;
-
-            // 2. Draft dynamic messages based on action
-            const notificationContent = {
-                accept: {
-                    title: "Booking Accepted! ✅",
-                    body: `${data.providerName} has accepted your request for ${data.serviceName}.`
-                },
-                decline: {
-                    title: "Booking Declined ❌",
-                    body: `${data.providerName} cannot fulfill your request at this time.`
-                },
-                cancel: {
-                    title: "Booking Cancelled ⚠️",
-                    body: `${isProvider ? data.providerName : data.consumerName} cancelled the booking.`
-                },
-                reschedule: {
-                    title: "Reschedule Requested 🕒",
-                    body: `${isProvider ? data.providerName : data.consumerName} requested a new time.`
-                },
-            };
-
-            const content = notificationContent[action as keyof typeof notificationContent];
-
-            if (content) {
-                NotificationService.sendByProfile(
-                    targetType,
-                    targetId.toString(),
-                    content.title,
-                    content.body,
-                    {
-                        bookingId: data._id.toString(),
-                        action,
-                        screen: "BookingDetails"
-                    }
-                ).catch(err => console.error("[Notification Error]:", err));
-            }
 
             const messages = {
                 accept: "Booking accepted successfully",
                 decline: "Booking declined",
                 cancel: "Booking cancelled successfully",
                 reschedule: "Reschedule request sent",
+                start: "Job started",
+                complete: "Job marked as complete",
+                dispute: "Dispute raised successfully"
             };
 
             ok_handler(res, messages[action as keyof typeof messages] || "Success", data);

@@ -5,10 +5,13 @@ import MissingParameterException from "../exceptions/MissingParameterException";
 import ResourceNotFoundException from "../exceptions/ResourceNotFoundException";
 import { Booking, IBooking } from "../models/booking.model";
 import { IProviderShopAddress, Provider } from "../models/provider.model";
-import { CreateBookingPayload, fetchBookingsPayload } from "../types/booking.type";
+import { BookingStatus, CreateBookingPayload, DisputeReason, fetchBookingsPayload } from "../types/booking.types";
 import { Consumer } from "../models/consumer.model";
 import { WalletService } from "./wallet/wallet.service";
 import mongoose from "mongoose";
+import { BookingStatusManager } from "../utils/booking-status-manager";
+import { DisputeService } from "./dispute.service";
+import { NotificationService } from "./notifications.service";
 
 class BookingServiceClass {
     constructor() {
@@ -16,41 +19,23 @@ class BookingServiceClass {
     }
 
     public async createBooking(payload: CreateBookingPayload) {
-        const {
-            consumerId,
-            providerId,
-            service,
-            scheduledAt,
-            locationType,
-            geoAddress,
-            textAddress,
-            note,
-        } = payload;
+        const { consumerId, providerId, service, scheduledAt, locationType, geoAddress, textAddress, note } = payload;
 
-
-        // verify the slot is still availaible 
         const bookingDate = new Date(scheduledAt);
         const deadline = this.calculateDeadline(bookingDate);
 
-        // Create a 1-minute window to avoid millisecond/rounding mismatches
         const startWindow = new Date(bookingDate);
         startWindow.setSeconds(0, 0);
-
         const endWindow = new Date(bookingDate);
         endWindow.setSeconds(59, 999);
 
         const existingBooking = await Booking.findOne({
             providerId,
-            scheduledAt: {
-                $gte: startWindow,
-                $lte: endWindow
-            },
-            status: { $in: ["pending", "accepted", "confirmed"] }
+            scheduledAt: { $gte: startWindow, $lte: endWindow },
+            status: { $in: [BookingStatus.PENDING, BookingStatus.ACCEPTED] }
         });
 
-        if (existingBooking) {
-            throw new Exception("This time slot has just been taken.");
-        }
+        if (existingBooking) throw new Exception("This time slot has just been taken.");
 
         const provider = await Provider.findById(providerId).lean();
         if (!provider) throw new Exception("Provider not found");
@@ -60,27 +45,17 @@ class BookingServiceClass {
 
         const basePrice = selectedService.price;
         const homeFee = locationType === "home" ? 1200 : 0;
-        const total = basePrice + homeFee;
 
         let finalLocation: any = { type: locationType };
-
         if (locationType === "home") {
-            console.log(geoAddress, textAddress)
-            if (!geoAddress || !textAddress) {
-                throw new MissingParameterException("Please provide your home address");
-            }
+            if (!geoAddress || !textAddress) throw new MissingParameterException("Please provide your home address");
             finalLocation.geoAddress = geoAddress;
             finalLocation.textAddress = textAddress;
         } else {
-            // If shop, we grab the address directly from the provider's profile
-            if (!provider.shopAddress) {
-                throw new Exception("Provider does not have a shop address set");
-            }
-            finalLocation.textAddress = provider.shopAddress.address; // String address
-            finalLocation.geoAddress = provider.shopAddress.location; // GeoJSON Point
+            if (!provider.shopAddress) throw new Exception("Provider does not have a shop address set");
+            finalLocation.textAddress = provider.shopAddress.address;
+            finalLocation.geoAddress = provider.shopAddress.location;
         }
-
-
 
         const booking = await Booking.create({
             consumerId,
@@ -88,16 +63,12 @@ class BookingServiceClass {
             service,
             serviceName: selectedService.name,
             serviceType: provider.serviceType,
-            price: {
-                service: basePrice,
-                homeServiceFee: homeFee,
-                total: total
-            },
+            price: { service: basePrice, homeServiceFee: homeFee, total: basePrice + homeFee },
             scheduledAt: bookingDate,
             location: finalLocation,
             note,
             deadlineAt: deadline,
-            status: "pending",
+            status: BookingStatus.PENDING,
         });
 
         return {
@@ -116,7 +87,7 @@ class BookingServiceClass {
 
         const pipeline: any[] = [];
 
-        // Geo-spatial Distance Calculation
+        //  Geo-spatial Distance Calculation
         if (lat !== undefined && lng !== undefined) {
             pipeline.push({
                 $geoNear: {
@@ -133,13 +104,12 @@ class BookingServiceClass {
         if (providerId) matchQuery.providerId = new Types.ObjectId(providerId);
         if (consumerId) matchQuery.consumerId = new Types.ObjectId(consumerId);
 
-
         switch (tab) {
             case "upcoming":
-                matchQuery.status = { $in: ["accepted", "in_progress"] };
+                matchQuery.status = { $in: ["accepted", "in_progress", "completion_pending"] };
                 break;
             case "past":
-                matchQuery.status = { $in: ["completed", "cancelled", "declined", "expired"] };
+                matchQuery.status = { $in: ["completed", "cancelled", "declined", "expired", "disputed"] };
                 break;
             case "pending":
                 matchQuery.status = "pending";
@@ -148,15 +118,6 @@ class BookingServiceClass {
 
         pipeline.push({ $match: matchQuery });
 
-        pipeline.push({
-            $sort: {
-                status: -1,
-                scheduledAt: tab === "upcoming" ? 1 : -1
-            }
-        });
-
-
-        //Lookup Consumer Info 
         pipeline.push(
             {
                 $lookup: {
@@ -169,46 +130,60 @@ class BookingServiceClass {
             { $unwind: { path: "$consumerData", preserveNullAndEmptyArrays: true } }
         );
 
-        // last sorting
+        //  Sorting logic
         pipeline.push({ $sort: { scheduledAt: tab === "upcoming" ? 1 : -1 } });
 
-
-        //  Execute Pipeline
+        // Execute Pipeline
         const bookings = await Booking.aggregate(pipeline);
 
+        //  Enhanced Mapping for Frontend Trust Engine
+        const results = bookings.map((b) => {
+            const isCompletionPending = b.status === "completion_pending";
+            const isInProgress = b.status === "in_progress";
 
+            // Logic Helpers
+            const canDispute = isCompletionPending && b.disputeDeadline && now < b.disputeDeadline;
+            const canComplete = ["in_progress", "completion_pending"].includes(b.status);
 
-        const results = bookings.map((b) => ({
-            _id: b._id,
+            return {
+                _id: b._id.toString(),
+                serviceName: b.serviceName,
+                serviceType: b.serviceType,
+                status: b.status,
+                paymentStatus: b.paymentStatus,
+                payoutStatus: b.payoutStatus,
 
-            serviceName: b.serviceName,
-            serviceType: b.serviceType,
-            price: b.price.total,
+                // Critical Trust Engine Helpers
+                disputeDeadline: b.disputeDeadline?.toISOString(),
+                canDispute: canDispute || false,
+                canComplete: canComplete || false,
+                isDisputed: b.isDisputed || false,
+                disputeId: b.disputeId?.toString(),
 
-            scheduledAt: b.scheduledAt,
-            deadlineAt: b.deadlineAt?.toISOString() || "",
-            createdAt: b.createdAt.toISOString(),
-            updatedAt: b.updatedAt?.toISOString(),
+                // Time Tracking
+                scheduledAt: b.scheduledAt.toISOString(),
+                deadlineAt: b.deadlineAt?.toISOString(),
+                createdAt: b.createdAt.toISOString(),
+                updatedAt: b.updatedAt?.toISOString(),
+                actualStartTime: b.actualStartTime?.toISOString(),
 
-            locationLabel: b.location.type === "shop" ? "Shop Visit" : "Home Service",
-            distance: b.distance ? `${b.distance.toFixed(1)} km` : undefined,
-            status: b.status,
+                // UI Helpers
+                locationLabel: b.location.type === "shop" ? "Shop Visit" : "Home Service",
+                price: b.price.total,
+                distance: b.distance ? `${b.distance.toFixed(1)} km` : undefined,
+                autoStarted: b.autoStarted || false,
+                __v: b.__v,
 
-            autoStarted: b.autoStarted,
-            isDisputed: b.isDisputed,
-            actualStartTime: b.actualStartTime?.toISOString(),
+                // Participant
+                consumer: {
+                    _id: b.consumerData?._id.toString(),
+                    firstName: b.consumerData?.firstName || "Customer",
+                    profilePicture: b.consumerData?.profilePicture || null
+                }
+            };
+        });
 
-            _v: b.__v,
-
-            consumer: {
-                firstName: b.consumerData?.firstName || "Customer",
-                profilePicture: b.consumerData?.profilePicture || ""
-            }
-        }));
-
-        return {
-            results,
-        };
+        return { results };
     }
 
     public async fetchBookingsDetails(payload: {
@@ -234,29 +209,36 @@ class BookingServiceClass {
             serviceName: booking.serviceName,
             serviceType: booking.serviceType,
             status: booking.status,
+            paymentStatus: booking.paymentStatus,
+            payoutStatus: booking.payoutStatus,
 
-            // Time Tracking
+            // Logic Helpers
+            disputeDeadline: booking.disputeDeadline?.toISOString(),
+            canDispute: booking.status === BookingStatus.COMPLETION_PENDING &&
+                new Date() < (booking.disputeDeadline || 0),
+            canComplete: [BookingStatus.IN_PROGRESS, BookingStatus.COMPLETION_PENDING].includes(booking.status),
+            isDisputed: booking.isDisputed || false,
+            disputeId: booking.disputeId?.toString(),
+            autoStarted: booking.autoStarted || false,
+
+            // Full Timeline
             scheduledAt: booking.scheduledAt.toISOString(),
             deadlineAt: booking.deadlineAt?.toISOString(),
+            acceptedAt: booking.acceptedAt?.toISOString(),
+            actualStartTime: booking.actualStartTime?.toISOString(),
+            completionPendingAt: booking.completionPendingAt?.toISOString(),
+            completedAt: booking.completedAt?.toISOString(),
             cancelledAt: booking.cancelledAt?.toISOString(),
             declinedAt: booking.declinedAt?.toISOString(),
-            acceptedAt: booking.acceptedAt?.toISOString(),
+            createdAt: booking.createdAt?.toISOString(),
+            updatedAt: booking.updatedAt?.toISOString(),
             rescheduledAt: booking.rescheduledAt?.toISOString(),
-            completedAt: booking.completedAt?.toISOString(),
-
-            // Tracking Fields
-            actualStartTime: booking.actualStartTime?.toISOString(),
-            autoStarted: booking.autoStarted || false,
-            isDisputed: booking.isDisputed || false,
 
             // Status Messages
             note: booking.note,
             declineReason: booking.declineReason,
             expiredMessage: booking.expiredMessage,
             cancelMessage: booking.cancelMessage,
-
-            createdAt: booking.createdAt?.toISOString(),
-            updatedAt: booking.updatedAt?.toISOString(),
 
             provider: {
                 _id: provider._id.toString(),
@@ -292,18 +274,17 @@ class BookingServiceClass {
 
     public async updateBookingStatus(payload: {
         bookingId: string;
-        action: "accept" | "decline" | "cancel" | "reschedule" | "start" | "complete";
+        action: "accept" | "decline" | "cancel" | "reschedule" | "start" | "complete" | "dispute";
         reason?: string;
         newScheduledAt?: string;
         userId: string;
+        disputeReason?: DisputeReason; // Only needed if action is "dispute"
     }) {
-        const { bookingId, action, reason, newScheduledAt, userId } = payload;
-
-        // Start the session
+        const { bookingId, action, reason, newScheduledAt, userId, disputeReason } = payload;
         const session = await mongoose.startSession();
         session.startTransaction();
-        try {
 
+        try {
             const booking = await Booking.findById(bookingId).session(session);
             if (!booking) throw new ResourceNotFoundException("Booking not found.");
 
@@ -312,118 +293,66 @@ class BookingServiceClass {
 
             switch (action) {
                 case "accept":
-                    if (!isProvider) {
-                        throw new ForbiddenAccessException("Only the service provider can accept this booking.");
-                    }
-                    if (booking.status !== "pending") {
-                        throw new Exception(`Cannot accept a booking that is already ${booking.status}.`);
-                    }
-                    booking.status = "accepted";
-                    booking.acceptedAt = new Date();
+                    if (!isProvider) throw new ForbiddenAccessException("Only providers can accept.");
+                    await BookingStatusManager.transition(booking, BookingStatus.ACCEPTED, session);
                     break;
 
                 case "decline":
-                    if (!isProvider) {
-                        throw new ForbiddenAccessException("Only the service provider can decline this request.");
-                    }
-                    booking.status = "declined";
-                    booking.declinedAt = new Date();
-                    booking.declineReason = reason || "Provider declined the request.";
+                    if (!isProvider) throw new ForbiddenAccessException("Only providers can decline.");
+                    booking.declineReason = reason || "Provider declined.";
+                    await BookingStatusManager.transition(booking, BookingStatus.DECLINED, session);
                     break;
 
                 case "cancel":
-                    if (!isProvider && !isConsumer) {
-                        throw new ForbiddenAccessException("You do not have permission to cancel this booking.");
-                    }
-                    if (booking.status === "completed") {
-                        throw new Exception("Cannot cancel a booking that is already marked as completed.");
-                    }
-                    booking.status = "cancelled";
-                    booking.cancelledAt = new Date();
+                    if (!isProvider && !isConsumer) throw new ForbiddenAccessException("Unauthorized.");
                     booking.cancelMessage = reason || `Cancelled by ${isProvider ? 'provider' : 'user'}.`;
+                    await BookingStatusManager.transition(booking, BookingStatus.CANCELLED, session);
                     break;
 
                 case "reschedule":
-                    if (!isConsumer) {
-                        throw new ForbiddenAccessException("Currently, only customers can initiate a reschedule.");
-                    }
-                    if (!newScheduledAt) {
-                        throw new MissingParameterException("Please select a new date and time.");
-                    }
+                    if (!isConsumer) throw new ForbiddenAccessException("Only customers can reschedule.");
+                    if (!newScheduledAt) throw new MissingParameterException("Select a new date.");
 
                     const newDate = new Date(newScheduledAt);
-                    const startWindow = new Date(newDate);
-                    startWindow.setSeconds(0, 0);
-
-                    const endWindow = new Date(newDate);
-                    endWindow.setSeconds(59, 999);
-
-                    const isTaken = await Booking.findOne({
-                        providerId: booking.providerId,
-                        scheduledAt: {
-                            $gte: startWindow,
-                            $lte: endWindow
-                        },
-                        status: { $in: ["pending", "accepted", "confirmed"] },
-                        _id: { $ne: booking._id }
-                    });
-
-                    if (isTaken) {
-                        throw new Exception("The new time slot is already booked by someone else.");
-                    }
-
-                    // Update the booking details
+                    // Check slot availability...
                     booking.scheduledAt = newDate;
                     booking.rescheduledAt = new Date();
-
-                    booking.status = "pending";
-
                     booking.deadlineAt = this.calculateDeadline(newDate);
-
+                    booking.status = BookingStatus.PENDING; // Reset status manually for reschedule
                     break;
 
                 case "start":
-                    // only providers can start a booking
-                    if (!isProvider) {
-                        throw new ForbiddenAccessException("Only the provider can start this service.");
-                    }
-
-                    // can only start an accpeted booking and not a booking thats already in progress
-                    if (booking.status === "in_progress") {
-                        throw new Exception("Service is already in progress.");
-                    }
-
-                    if (booking.status !== "accepted") {
-                        throw new Exception(`Cannot start a service that is ${booking.status}.`);
-                    }
-
-                    booking.status = "in_progress";
-                    booking.actualStartTime = new Date();
-                    // Manually started by provider and not by the system
-                    booking.autoStarted = false;
+                    if (!isProvider) throw new ForbiddenAccessException("Only providers can start.");
+                    await BookingStatusManager.transition(booking, BookingStatus.IN_PROGRESS, session);
                     break;
 
                 case "complete":
-                    if (!isProvider) {
-                        throw new ForbiddenAccessException("Only the provider can mark this as completed.");
-                    }
-
-                    if (booking.status !== "in_progress") {
-                        throw new Exception("Only in-progress services can be marked as completed.");
-                    }
-
-                    booking.status = "completed";
-                    booking.completedAt = new Date();
-
-                    await WalletService.handleJobCompletion(booking, session);
-
+                    if (!isProvider) throw new ForbiddenAccessException("Only providers can complete.");
+                    await BookingStatusManager.transition(booking, BookingStatus.COMPLETION_PENDING, session);
                     break;
 
+                case "dispute":
+                    if (!isConsumer) {
+                        throw new ForbiddenAccessException("Only the client can initiate a dispute.");
+                    }
+
+                    await DisputeService.raiseDispute({
+                        bookingId: booking._id.toString(),
+                        userId,
+                        reason: disputeReason || DisputeReason.OTHER,  // In this context, 'reason' is the 'type' of dispute
+                        description: payload.reason || "Dispute raised by customer", // Fallback description
+                        evidence: [], // You can expand the payload to accept evidence if needed
+                    }, session);
+
+                    break;
             }
 
             await booking.save({ session });
             await session.commitTransaction();
-            // Fetch related names for the notification
+
+            this.sendStatusNotification(booking, action).catch(console.error);
+
+            // Notification lookup
             const [consumer, provider] = await Promise.all([
                 Consumer.findById(booking.consumerId).select('firstName lastName').lean(),
                 Provider.findById(booking.providerId).select('firstName lastName').lean()
@@ -448,7 +377,6 @@ class BookingServiceClass {
             session.endSession();
         }
     }
-
     public async getRescheduleData(bookingId: string, userId: string) {
         const booking = await Booking.findById(bookingId)
             .populate({
@@ -489,76 +417,70 @@ class BookingServiceClass {
         };
     }
 
-    // 
-    public async processAcceptedZombies() {
-        const GRACE_PERIOD_MINUTES = 15;
-        const cutoffTime = new Date(Date.now() - GRACE_PERIOD_MINUTES * 60000);
 
-        // Find bookings that are 'accepted' but the scheduled time is now 15+ mins past
-        const zombieBookings = await Booking.find({
-            status: "accepted",
-            scheduledAt: { $lte: cutoffTime }
+    // cron jobs
+    public async processAcceptedZombies() {
+        const now = Date.now();
+        const fiveMinutesLate = new Date(now - 5 * 60000);
+        const fifteenMinutesLate = new Date(now - 15 * 60000);
+
+        // Find bookings for Auto-Start (15+ mins late)
+        const zombies = await Booking.find({
+            status: BookingStatus.ACCEPTED,
+            scheduledAt: { $lte: fifteenMinutesLate }
         });
 
-        if (zombieBookings.length === 0) return;
+        for (const b of zombies) {
+            b.autoStarted = true;
+            await BookingStatusManager.transition(b, BookingStatus.IN_PROGRESS);
+            this.sendStatusNotification(b, 'auto_start').catch(err =>
+                console.error(`[CRON NOTIF ERROR] Zombie start for ${b._id}:`, err));
+        }
 
-        const results = await Promise.allSettled(
-            zombieBookings.map(async (booking) => {
-                booking.status = "in_progress";
-                booking.autoStarted = true;
-                booking.actualStartTime = new Date();
-                await booking.save();
+        // Find bookings for Nudge (5-14 mins late)
+        // We only nudge if the lateWarningSent is still false
+        const needsNudge = await Booking.find({
+            status: BookingStatus.ACCEPTED,
+            scheduledAt: { $lte: fiveMinutesLate, $gt: fifteenMinutesLate },
+            "reminders.lateWarningSent": false
+        });
 
-                //  TRIGGER notification service here
-                // NotificationService.notifyAutoStart(booking);
-            })
-        );
-
-        console.log(`[CRON] Auto-started ${zombieBookings.length} zombie bookings`);
+        for (const b of needsNudge) {
+            this.sendStatusNotification(b, 'imminent_warning').catch(err =>
+                console.error(`[CRON NOTIF ERROR] Imminent warning for ${b._id}:`, err)
+            );
+            await Booking.updateOne(
+                { _id: b._id },
+                { $set: { "reminders.lateWarningSent": true } }
+            );
+        }
     }
-
-    // 
     public async cleanupExpiredBookings() {
         const now = new Date();
 
-        //  Fetch all pending bookings to see what we are dealing with
-        const pendingBookings = await Booking.find({ status: "pending" })
-            .select("deadlineAt status _id")
-            .lean();
+        const expiredBookings = await Booking.find({
+            status: BookingStatus.PENDING,
+            deadlineAt: { $lt: now }
+        });
 
-        console.log(`[CRON DEBUG] Found ${pendingBookings.length} total pending bookings.`);
-        console.log(`[CRON DEBUG] Current Server Time (UTC): ${now.toISOString()}`);
+        if (expiredBookings.length === 0) return 0;
 
-        if (pendingBookings.length > 0) {
-            pendingBookings.forEach((b, index) => {
-                //Use a fallback or check if deadlineAt exists
-                if (!b.deadlineAt) {
-                    console.log(`   -> [${index + 1}] ID: ${b._id} | ⚠️ No deadline set!`);
-                    return;
-                }
-
-                const deadline = new Date(b.deadlineAt);
-                const isExpired = deadline < now;
-
-                console.log(
-                    `   -> [${index + 1}] ID: ${b._id} | Deadline: ${deadline.toISOString()} | Overdue: ${isExpired}`
-                );
-            });
-        }
-
-        //Perform the update
         const result = await Booking.updateMany(
-            {
-                status: "pending",
-                deadlineAt: { $lt: now }
-            },
+            { _id: { $in: expiredBookings.map(b => b._id) } },
             {
                 $set: {
-                    status: "expired",
+                    status: BookingStatus.EXPIRED,
                     expiredMessage: "System: Request expired due to provider inactivity."
                 }
             }
         );
+
+        // Notify the Consumer that their request was never accepted
+        for (const b of expiredBookings) {
+            this.sendStatusNotification(b, 'expired').catch(err =>
+                console.error(`[CRON NOTIF ERROR] Expiry for ${b._id}:`, err)
+            );
+        }
 
         if (result.modifiedCount > 0) {
             console.log(`[CRON] Successfully expired ${result.modifiedCount} bookings.`);
@@ -566,7 +488,65 @@ class BookingServiceClass {
 
         return result.modifiedCount;
     }
+    public async processPendingPayouts() {
+        const now = new Date();
 
+        //  Find bookings where the 2-hour dispute window has passed
+        const eligibleBookings = await Booking.find({
+            status: BookingStatus.COMPLETION_PENDING,
+            disputeDeadline: { $lte: now }
+        });
+
+        if (eligibleBookings.length === 0) return;
+
+        console.log(`[CRON] Processing payouts for ${eligibleBookings.length} bookings...`);
+
+        for (const booking of eligibleBookings) {
+            const session = await mongoose.startSession();
+            session.startTransaction();
+
+            try {
+                // Move to terminal COMPLETED state via Manager
+                await BookingStatusManager.transition(booking, BookingStatus.COMPLETED, session);
+
+                //  Trigger Wallet Service to move money from Escrow to Provider
+                await WalletService.handleJobCompletion(booking, session);
+
+                await session.commitTransaction();
+                console.log(`[CRON] Payout successful for Booking: ${booking._id}`);
+
+                this.sendStatusNotification(booking, 'complete').catch(console.error);;
+            } catch (error) {
+                await session.abortTransaction();
+                console.error(`[CRON ERROR] Payout failed for ${booking._id}:`, error);
+            } finally {
+                session.endSession();
+            }
+        }
+    }
+    public async sendBookingReminders() {
+        const oneHourFromNow = new Date(Date.now() + 60 * 60000);
+        const windowStart = new Date(oneHourFromNow.getTime() - 10 * 60000);
+        const windowEnd = new Date(oneHourFromNow.getTime() + 10 * 60000);
+
+        const upcomingBookings = await Booking.find({
+            status: BookingStatus.ACCEPTED,
+            scheduledAt: { $gte: windowStart, $lte: windowEnd },
+            "reminders.oneHourSent": false
+        });
+
+        for (const b of upcomingBookings) {
+            this.sendStatusNotification(b, 'reminder_1h').catch(err =>
+                console.log(`[CRON NOTIF ERROR] 1-hour reminder for ${b._id}:`, err)
+            );
+
+            // Update specific flag
+            await Booking.updateOne(
+                { _id: b._id },
+                { $set: { "reminders.oneHourSent": true } }
+            );
+        }
+    }
 
 
 
@@ -575,20 +555,85 @@ class BookingServiceClass {
     private calculateDeadline(scheduledAt: Date): Date {
         const now = new Date();
         const diffInHours = (scheduledAt.getTime() - now.getTime()) / (1000 * 60 * 60);
-
-        let minutesToAdd: number;
-
-        if (diffInHours <= 2) {
-            minutesToAdd = 15; // Extremely urgent
-        } else if (diffInHours <= 24) {
-            minutesToAdd = 30; // Same day
-        } else if (diffInHours <= 48) {
-            minutesToAdd = 360; // Next day (6 hours)
-        } else {
-            minutesToAdd = 1440; // 2+ days away (24 hours)
-        }
-
+        let minutesToAdd = diffInHours <= 2 ? 15 : diffInHours <= 24 ? 30 : diffInHours <= 48 ? 360 : 1440;
         return new Date(now.getTime() + minutesToAdd * 60000);
+    }
+    private async sendStatusNotification(booking: IBooking, action: "accept" | "decline"
+        | "start" | "complete" | "reschedule" | "dispute"
+        | "expired" | "auto_start" | "cancel" | "reminder_1h" | "imminent_warning") {
+        try {
+            const providerActions = ["accept", "decline", "start", "complete"];
+            const consumerActions = ["reschedule", "dispute"];
+            const systemActions = ["expired", "auto_start"];
+
+            const targets: Array<{ type: 'consumer' | 'provider', id: any }> = [];
+
+            // Identify Targets
+            if (systemActions.includes(action) || action === 'cancel') {
+                targets.push({ type: 'consumer', id: booking.consumerId });
+                targets.push({ type: 'provider', id: booking.providerId });
+            } else if (providerActions.includes(action)) {
+                targets.push({ type: 'consumer', id: booking.consumerId });
+            } else if (consumerActions.includes(action)) {
+                targets.push({ type: 'provider', id: booking.providerId });
+            }
+
+            // content based on WHO is receiving it
+            const getNotificationContent = (targetType: 'consumer' | 'provider') => {
+                const contents: Record<string, { title: string, body: string }> = {
+                    accept: { title: "Booking Accepted! ✅", body: "Your booking has been accepted." },
+                    decline: { title: "Booking Declined ❌", body: "The provider cannot fulfill your request." },
+                    dispute: { title: "Dispute Raised ⚠️", body: "A dispute has been opened for your booking." },
+                    complete: { title: "Job Completed 🏁", body: "Job marked as done. You have 2 hours to review." },
+                    start: { title: "Job Started 🚀", body: `The service for ${booking.serviceName} has begun.` },
+                    reschedule: { title: "Reschedule Request 🕒", body: "A new time has been requested for the booking." },
+                    cancel: { title: "Booking Cancelled 🛑", body: "The booking has been cancelled." },
+
+                    // Specialized System Content
+                    auto_start: {
+                        title: "Job Auto-Started 🚀",
+                        body: targetType === 'provider'
+                            ? `The timer for ${booking.serviceName} has started automatically.`
+                            : `Your service for ${booking.serviceName} has officially begun.`
+                    },
+                    expired: {
+                        title: "Request Expired ⏰",
+                        body: targetType === 'provider'
+                            ? "A booking request expired because it wasn't accepted in time."
+                            : "Your booking request expired as it wasn't accepted in time."
+                    },
+
+                    reminder_1h: {
+                        title: "Upcoming Booking 📅",
+                        body: `Reminder: Your booking for ${booking.serviceName} is scheduled for 1 hour from now.`
+                    },
+                    imminent_warning: {
+                        title: "Are you there? ⏳",
+                        body: targetType === 'provider'
+                            ? `You're late for your appointment! Start the job now to avoid system auto-start.`
+                            : `The provider is slightly behind schedule for your ${booking.serviceName} booking.`
+                    }
+                };
+                return contents[action];
+            };
+
+            //  Dispatch Notifications
+            await Promise.all(targets.map(target => {
+                const content = getNotificationContent(target.type);
+                if (!content) return Promise.resolve();
+
+                return NotificationService.sendByProfile(
+                    target.type,
+                    target.id.toString(),
+                    content.title,
+                    content.body,
+                    { bookingId: booking._id.toString(), screen: "BookingDetails", action }
+                );
+            }));
+
+        } catch (err) {
+            console.error("Non-blocking Notification Error:", err);
+        }
     }
 
 }
