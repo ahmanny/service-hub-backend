@@ -260,7 +260,7 @@ class BookingServiceClass {
             location: {
                 type: booking.location.type, // Always reveal (e.g., 'home' or 'shop')
                 geoAddress: isActiveOrDone ? booking.location.geoAddress : null,
-                textAddress: isActiveOrDone ? booking.location.textAddress : "Address hidden until accepted",
+                textAddress: isActiveOrDone ? booking.location.textAddress : "Address hidden",
             },
 
             price: {
