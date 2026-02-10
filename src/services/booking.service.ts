@@ -453,13 +453,11 @@ class BookingServiceClass {
             this.sendStatusNotification(b, 'auto_start').catch(err =>
                 console.error(`[CRON NOTIF ERROR] Zombie start for ${b._id}:`, err));
         }
-
-        // Find bookings for Nudge (5-14 mins late)
         // We only nudge if the lateWarningSent is still false
         const needsNudge = await Booking.find({
             status: BookingStatus.ACCEPTED,
-            scheduledAt: { $lte: fiveMinutesLate, $gt: fifteenMinutesLate },
-            "reminders.lateWarningSent": false
+            scheduledAt: { $lte: fiveMinutesLate }, 
+            "reminders.lateWarningSent": { $ne: true }
         });
 
         for (const b of needsNudge) {
