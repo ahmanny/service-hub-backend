@@ -2,10 +2,11 @@ import { ClientSession } from "mongoose";
 import { BookingStatus } from "../types/booking.types";
 import Exception from "../exceptions/Exception";
 import { canTransitionTo } from "./booking-state.utils";
+import { IBooking } from "../models/booking.model";
 
 export class BookingStatusManager {
     public static async transition(
-        booking: any,
+        booking: IBooking,
         nextStatus: BookingStatus,
         session?: ClientSession
     ): Promise<any> {
@@ -36,7 +37,7 @@ export class BookingStatusManager {
                 break;
 
             case BookingStatus.COMPLETION_PENDING:
-                booking.completedAt = now;
+                booking.completionPendingAt = now;
                 booking.disputeDeadline = new Date(now.getTime() + 2 * 60 * 60 * 1000); // 2 hours from now
                 break;
 
@@ -51,7 +52,7 @@ export class BookingStatusManager {
 
             case BookingStatus.COMPLETED:
                 // Final terminal state side-effects
-                booking.finalizedAt = now;
+                booking.completedAt = now;
                 break;
         }
 

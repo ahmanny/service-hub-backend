@@ -32,6 +32,8 @@ export interface IBooking extends Document {
     acceptedAt?: Date;
     rescheduledAt?: Date;
     completedAt?: Date;
+    disputedAt?: Date;
+    refundedAt?: Date;
 
 
     location: {
@@ -203,6 +205,14 @@ const BookingSchema = new Schema<IBooking>(
             index: true
         },
         completedAt: {
+            type: Date,
+            index: true
+        },
+        disputedAt: {
+            type: Date,
+            index: true
+        },
+        refundedAt: {
             type: Date,
             index: true
         },

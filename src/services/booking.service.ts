@@ -12,6 +12,7 @@ import mongoose from "mongoose";
 import { BookingStatusManager } from "../utils/booking-status-manager";
 import { DisputeService } from "./dispute.service";
 import { NotificationService } from "./notifications.service";
+import BadRequestException from "../exceptions/BadRequestException";
 
 class BookingServiceClass {
     constructor() {
@@ -274,7 +275,7 @@ class BookingServiceClass {
 
     public async updateBookingStatus(payload: {
         bookingId: string;
-        action: "accept" | "decline" | "cancel" | "reschedule" | "start" | "complete" | "dispute";
+        action: "accept" | "decline" | "cancel" | "reschedule" | "start" | "complete" | "dispute" | "confirm";
         reason?: string;
         newScheduledAt?: string;
         userId: string;
@@ -329,6 +330,22 @@ class BookingServiceClass {
                 case "complete":
                     if (!isProvider) throw new ForbiddenAccessException("Only providers can complete.");
                     await BookingStatusManager.transition(booking, BookingStatus.COMPLETION_PENDING, session);
+                    break;
+
+                case "confirm":
+                    if (!isConsumer) throw new ForbiddenAccessException("Only customers can confirm completion.");
+
+                    // Ensure the booking is in a state that CAN be confirmed
+                    if (booking.status !== BookingStatus.COMPLETION_PENDING) {
+                        throw new BadRequestException("Booking is not awaiting confirmation.");
+                    }
+
+                    //  Finalize the status to COMPLETED
+                    await BookingStatusManager.transition(booking, BookingStatus.COMPLETED, session);
+
+                    //  Trigger the immediate payout (Transfer from Escrow to Provider Wallet)
+                    await WalletService.handleJobCompletion(booking, session);
+
                     break;
 
                 case "dispute":
@@ -558,12 +575,14 @@ class BookingServiceClass {
         let minutesToAdd = diffInHours <= 2 ? 15 : diffInHours <= 24 ? 30 : diffInHours <= 48 ? 360 : 1440;
         return new Date(now.getTime() + minutesToAdd * 60000);
     }
-    private async sendStatusNotification(booking: IBooking, action: "accept" | "decline"
-        | "start" | "complete" | "reschedule" | "dispute"
-        | "expired" | "auto_start" | "cancel" | "reminder_1h" | "imminent_warning") {
+    private async sendStatusNotification(
+        booking: IBooking,
+        action: "accept" | "decline" | "start" | "complete" | "reschedule" | "dispute" | "confirm"
+            | "expired" | "auto_start" | "cancel" | "reminder_1h" | "imminent_warning"
+    ) {
         try {
             const providerActions = ["accept", "decline", "start", "complete"];
-            const consumerActions = ["reschedule", "dispute"];
+            const consumerActions = ["reschedule", "dispute", "confirm"];
             const systemActions = ["expired", "auto_start"];
 
             const targets: Array<{ type: 'consumer' | 'provider', id: any }> = [];
@@ -575,21 +594,28 @@ class BookingServiceClass {
             } else if (providerActions.includes(action)) {
                 targets.push({ type: 'consumer', id: booking.consumerId });
             } else if (consumerActions.includes(action)) {
+                // If consumer confirms or reschedules, notify the provider
                 targets.push({ type: 'provider', id: booking.providerId });
             }
 
-            // content based on WHO is receiving it
+            // Content based on WHO is receiving it
             const getNotificationContent = (targetType: 'consumer' | 'provider') => {
                 const contents: Record<string, { title: string, body: string }> = {
                     accept: { title: "Booking Accepted! ✅", body: "Your booking has been accepted." },
                     decline: { title: "Booking Declined ❌", body: "The provider cannot fulfill your request." },
                     dispute: { title: "Dispute Raised ⚠️", body: "A dispute has been opened for your booking." },
                     complete: { title: "Job Completed 🏁", body: "Job marked as done. You have 2 hours to review." },
+
+                    // NEW: Confirm Content
+                    confirm: {
+                        title: "Payment Released! 💰",
+                        body: "The client has confirmed the job. Funds have been moved to your wallet."
+                    },
+
                     start: { title: "Job Started 🚀", body: `The service for ${booking.serviceName} has begun.` },
                     reschedule: { title: "Reschedule Request 🕒", body: "A new time has been requested for the booking." },
                     cancel: { title: "Booking Cancelled 🛑", body: "The booking has been cancelled." },
 
-                    // Specialized System Content
                     auto_start: {
                         title: "Job Auto-Started 🚀",
                         body: targetType === 'provider'
@@ -602,7 +628,6 @@ class BookingServiceClass {
                             ? "A booking request expired because it wasn't accepted in time."
                             : "Your booking request expired as it wasn't accepted in time."
                     },
-
                     reminder_1h: {
                         title: "Upcoming Booking 📅",
                         body: `Reminder: Your booking for ${booking.serviceName} is scheduled for 1 hour from now.`
@@ -617,7 +642,7 @@ class BookingServiceClass {
                 return contents[action];
             };
 
-            //  Dispatch Notifications
+            // Dispatch Notifications
             await Promise.all(targets.map(target => {
                 const content = getNotificationContent(target.type);
                 if (!content) return Promise.resolve();
