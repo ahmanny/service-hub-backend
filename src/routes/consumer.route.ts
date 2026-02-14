@@ -36,5 +36,4 @@ consumerRoutes.delete('/address/:addressId', controller.deleteAddress());
 /**
  * Search & Booking
  */
-consumerRoutes.get('/home/providers', controller.getProviders());
 consumerRoutes.get('/providers/:providerId', controller.getProviderProfileForBooking());

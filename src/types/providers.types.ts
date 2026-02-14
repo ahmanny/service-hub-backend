@@ -23,6 +23,8 @@ export interface ProviderListItem {
     distance: number | null;               // in meters
     duration: number | null;               // in seconds
     isClosest: boolean;
+    isTopRated: boolean;
+    reviewCount: number;
 }
 
 
@@ -44,6 +46,8 @@ export interface createProviderProfilePayload {
         formattedAddress: string;
         latitude: number;
         longitude: number;
+        city?: string;
+        state?: string;
     },
     offersHomeService: boolean,
     offersShopVisit: boolean,

@@ -391,69 +391,20 @@ class ConsumerServiceClass {
 
         const bookedSlots = activeBookings.map(b => {
             const d = new Date(b.scheduledAt);
+
+            const year = d.getFullYear();
+            const month = String(d.getMonth() + 1).padStart(2, '0');
+            const day = String(d.getDate()).padStart(2, '0');
+
             return {
-                date: d.toISOString().split('T')[0],
-                startTime: `${d.getHours().toString().padStart(2, '0')}:00`
+                date: `${year}-${month}-${day}`, // Format: YYYY-MM-DD (local)
+                startTime: `${d.getHours().toString().padStart(2, '0')}:00` // local hour
             };
         });
 
         return {
             provider: { ...provider, bookedSlots }
         };
-    }
-
-
-    public async fetchProviders(payload: SearchPayload) {
-        const { serviceType, lat, lng } = payload;
-
-        if (serviceType === "all") {
-            const categories: ServiceType[] = ["barber", "hair_stylist", "electrician", "plumber", "house_cleaning"];
-
-            const dashboardResults = await Promise.all(
-                categories.map(async (type) => {
-                    const providers = await this.executeGeoSearch(type, lat, lng, 4);
-                    return {
-                        type,
-                        providers: this.mapToSearchResult(providers)
-                    };
-                })
-            );
-
-            return dashboardResults.reduce((acc, curr) => {
-                acc[curr.type] = curr.providers;
-                return acc;
-            }, {} as Record<string, ProviderListItem[]>);
-        }
-
-        const providers = await this.executeGeoSearch(serviceType, lat, lng, 20);
-        return this.mapToSearchResult(providers);
-    }
-
-    public async searchNearbyProviders(payload: SearchPayload) {
-        const { serviceType, lat, lng } = payload;
-
-        if (serviceType === "all") {
-            const categories: ServiceType[] = ["barber", "hair_stylist", "electrician", "plumber", "house_cleaning"];
-
-            const dashboardResults = await Promise.all(
-                categories.map(async (type) => {
-                    const providers = await this.executeGeoSearch(type, lat, lng, 4);
-                    return {
-                        type,
-                        providers: this.mapToSearchResult(providers)
-                    };
-                })
-            );
-
-            return dashboardResults.reduce((acc, curr) => {
-                acc[curr.type] = curr.providers;
-                return acc;
-            }, {} as Record<string, ProviderListItem[]>);
-        }
-
-        // 2. Logic for Specific Tab - Returns ProviderListItem[]
-        const providers = await this.executeGeoSearch(serviceType, lat, lng, 20);
-        return this.mapToSearchResult(providers);
     }
 
     /**
@@ -477,45 +428,6 @@ class ConsumerServiceClass {
                 createdAt: userId?.createdAt
             }
         };
-    }
-
-    /**
- * Core MongoDB Geo-spatial Aggregation
- */
-    private async executeGeoSearch(type: string, lng: number, lat: number, limit: number) {
-        const query: any = { serviceType: type };
-
-        return await Provider.aggregate([
-            {
-                $geoNear: {
-                    near: { type: "Point", coordinates: [lng, lat] },
-                    distanceField: "straightDistance", // distance in meters
-                    distanceMultiplier: 0.001,
-                    key: "shopAddress.location",
-
-                    spherical: true,
-                    query: query,
-                },
-            },
-            { $limit: limit },
-        ]);
-    }
-    /**
-     * Maps DB documents to the ProviderListItem interface
-     */
-    private mapToSearchResult(providers: any[]): ProviderListItem[] {
-        return providers.map((provider, index) => ({
-            _id: provider._id.toString(),
-            firstName: provider.firstName,
-            serviceType: provider.serviceType,
-            availabilityMode: provider.availabilityMode,
-            basePrice: provider.basePriceFrom || 0,
-            rating: provider.rating || 0,
-            profilePicture: provider.profilePicture || null,
-            distance: provider.straightDistance.toFixed(1),
-            duration: null,
-            isClosest: index === 0,
-        }));
     }
 }
 

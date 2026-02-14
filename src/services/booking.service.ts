@@ -13,6 +13,8 @@ import { BookingStatusManager } from "../utils/booking-status-manager";
 import { DisputeService } from "./dispute.service";
 import { NotificationService } from "./notifications.service";
 import BadRequestException from "../exceptions/BadRequestException";
+import { Rating } from "../models/rating.model";
+import { ProviderService } from "./provider/provider.service";
 
 class BookingServiceClass {
     constructor() {
@@ -81,7 +83,6 @@ class BookingServiceClass {
             providerId
         };
     }
-
     public async fetchBookings(payload: fetchBookingsPayload) {
         const { tab, providerId, consumerId, lat, lng } = payload;
         const now = new Date();
@@ -186,7 +187,6 @@ class BookingServiceClass {
 
         return { results };
     }
-
     public async fetchBookingsDetails(payload: {
         bookingId: string,
         currentUserId?: string,
@@ -272,16 +272,17 @@ class BookingServiceClass {
             },
         };
     }
-
     public async updateBookingStatus(payload: {
         bookingId: string;
-        action: "accept" | "decline" | "cancel" | "reschedule" | "start" | "complete" | "dispute" | "confirm";
+        action: "accept" | "decline" | "cancel" | "reschedule" | "start" | "complete" | "dispute" | "confirm" | "rate";
         reason?: string;
         newScheduledAt?: string;
         userId: string;
-        disputeReason?: DisputeReason; // Only needed if action is "dispute"
+        disputeReason?: DisputeReason;
+        rating?: number;
+        comment?: string;
     }) {
-        const { bookingId, action, reason, newScheduledAt, userId, disputeReason } = payload;
+        const { bookingId, action, reason, newScheduledAt, userId, disputeReason, rating, comment } = payload;
         const session = await mongoose.startSession();
         session.startTransaction();
 
@@ -315,11 +316,25 @@ class BookingServiceClass {
                     if (!newScheduledAt) throw new MissingParameterException("Select a new date.");
 
                     const newDate = new Date(newScheduledAt);
+
                     // Check slot availability...
+                    const startWindow = new Date(newDate);
+                    startWindow.setSeconds(0, 0);
+                    const endWindow = new Date(newDate);
+                    endWindow.setSeconds(59, 999);
+
+                    const existingBooking = await Booking.findOne({
+                        providerId: booking.providerId,
+                        scheduledAt: { $gte: startWindow, $lte: endWindow },
+                        status: { $in: [BookingStatus.PENDING, BookingStatus.ACCEPTED] }
+                    });
+
+                    if (existingBooking) throw new Exception("This time slot has just been taken.");
+
                     booking.scheduledAt = newDate;
                     booking.rescheduledAt = new Date();
                     booking.deadlineAt = this.calculateDeadline(newDate);
-                    booking.status = BookingStatus.PENDING; // Reset status manually for reschedule
+                    booking.status = BookingStatus.PENDING;
                     break;
 
                 case "start":
@@ -335,17 +350,39 @@ class BookingServiceClass {
                 case "confirm":
                     if (!isConsumer) throw new ForbiddenAccessException("Only customers can confirm completion.");
 
-                    // Ensure the booking is in a state that CAN be confirmed
-                    if (booking.status !== BookingStatus.COMPLETION_PENDING) {
-                        throw new BadRequestException("Booking is not awaiting confirmation.");
+                    const validStates = [BookingStatus.COMPLETION_PENDING, BookingStatus.IN_PROGRESS];
+                    if (!validStates.includes(booking.status)) {
+                        throw new BadRequestException("Booking cannot be confirmed at this stage.");
                     }
 
-                    //  Finalize the status to COMPLETED
                     await BookingStatusManager.transition(booking, BookingStatus.COMPLETED, session);
-
-                    //  Trigger the immediate payout (Transfer from Escrow to Provider Wallet)
                     await WalletService.handleJobCompletion(booking, session);
+                    break;
 
+                case "rate":
+                    if (!isConsumer) throw new ForbiddenAccessException("Only customers can rate.");
+                    if (booking.status !== BookingStatus.COMPLETED) throw new BadRequestException("Service not completed.");
+                    if (booking.isRated) throw new BadRequestException("Already rated.");
+                    if (!rating || rating < 1 || rating > 5) throw new BadRequestException("Valid rating required.");
+
+                    // Create the Rating record
+                    await Rating.create([{
+                        bookingId: booking._id,
+                        providerId: booking.providerId,
+                        consumerId: booking.consumerId,
+                        rating,
+                        comment
+                    }], { session });
+
+                    // Mark booking as rated
+                    booking.isRated = true;
+
+                    // Update Provider's Aggregate Rating
+                    await ProviderService.updateProviderRatingStats(
+                        booking.providerId.toString(),
+                        rating, // the stars the user just gave
+                        session
+                    );
                     break;
 
                 case "dispute":
@@ -456,7 +493,7 @@ class BookingServiceClass {
         // We only nudge if the lateWarningSent is still false
         const needsNudge = await Booking.find({
             status: BookingStatus.ACCEPTED,
-            scheduledAt: { $lte: fiveMinutesLate }, 
+            scheduledAt: { $lte: fiveMinutesLate },
             "reminders.lateWarningSent": { $ne: true }
         });
 
@@ -547,7 +584,7 @@ class BookingServiceClass {
         const upcomingBookings = await Booking.find({
             status: BookingStatus.ACCEPTED,
             scheduledAt: { $gte: windowStart, $lte: windowEnd },
-            "reminders.oneHourSent": false
+            "reminders.oneHourSent": { $ne: true }
         });
 
         for (const b of upcomingBookings) {
@@ -575,12 +612,12 @@ class BookingServiceClass {
     }
     private async sendStatusNotification(
         booking: IBooking,
-        action: "accept" | "decline" | "start" | "complete" | "reschedule" | "dispute" | "confirm"
+        action: "accept" | "decline" | "start" | "complete" | "reschedule" | "dispute" | "confirm" | "rate"
             | "expired" | "auto_start" | "cancel" | "reminder_1h" | "imminent_warning"
     ) {
         try {
             const providerActions = ["accept", "decline", "start", "complete"];
-            const consumerActions = ["reschedule", "dispute", "confirm"];
+            const consumerActions = ["reschedule", "dispute", "confirm", "rate"];
             const systemActions = ["expired", "auto_start"];
 
             const targets: Array<{ type: 'consumer' | 'provider', id: any }> = [];
@@ -609,7 +646,10 @@ class BookingServiceClass {
                         title: "Payment Released! 💰",
                         body: "The client has confirmed the job. Funds have been moved to your wallet."
                     },
-
+                    rate: {
+                        title: "Rating Received! 📊",
+                        body: "You've received a new rating for your service."
+                    },
                     start: { title: "Job Started 🚀", body: `The service for ${booking.serviceName} has begun.` },
                     reschedule: { title: "Reschedule Request 🕒", body: "A new time has been requested for the booking." },
                     cancel: { title: "Booking Cancelled 🛑", body: "The booking has been cancelled." },

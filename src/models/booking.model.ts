@@ -56,8 +56,9 @@ export interface IBooking extends Document {
     disputeId?: Types.ObjectId;
 
     actualStartTime?: Date;
-    autoStarted: boolean; // True if the cron job moved it to in_progress
-    isDisputed: boolean;  // If the customer flags a no-show
+    autoStarted: boolean;
+    isDisputed: boolean;
+    isRated: boolean;
 
     reminders: {
         oneHourSent: boolean,
@@ -178,6 +179,7 @@ const BookingSchema = new Schema<IBooking>(
         actualStartTime: { type: Date },
         autoStarted: { type: Boolean, default: false },
         isDisputed: { type: Boolean, default: false },
+        isRated: { type: Boolean, default: false },
 
         reminders: {
             oneHourSent: { type: Boolean, default: false },

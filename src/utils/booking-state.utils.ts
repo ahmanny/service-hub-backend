@@ -13,7 +13,9 @@ export const BOOKING_STATUS_FLOW: Record<BookingStatus, BookingStatus[]> = {
     ],
     [BookingStatus.IN_PROGRESS]: [
         BookingStatus.COMPLETION_PENDING,
-        BookingStatus.CANCELLED    // Cancellation during the job (emergency/dispute)
+        BookingStatus.CANCELLED,    // Cancellation during the job (emergency/dispute)
+        BookingStatus.DISPUTED,      // Consumer disputes the service quality during the job
+        BookingStatus.COMPLETED,
     ],
     [BookingStatus.COMPLETION_PENDING]: [
         BookingStatus.COMPLETED,

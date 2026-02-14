@@ -15,6 +15,7 @@ import MissingParameterException from '../../exceptions/MissingParameterExceptio
 import BadRequestException from '../../exceptions/BadRequestException';
 import { CloudinaryService } from '../cloudinary.service';
 import { Wallet } from '../../models/wallet.model';
+import { calculateWeightedRating } from '../../utils/ranking.utils';
 
 
 class ProviderServiceClass {
@@ -126,6 +127,8 @@ class ProviderServiceClass {
             ...(shopAddress && {
                 shopAddress: {
                     address: shopAddress.formattedAddress,
+                    city: shopAddress.city,
+                    state: shopAddress.state,
                     location: {
                         type: 'Point',
                         coordinates: [shopAddress.longitude, shopAddress.latitude] //[long, lat]
@@ -733,6 +736,32 @@ class ProviderServiceClass {
     }
 
 
+    // This method is called after a new rating is created to update the provider's aggregate rating stats.
+    
+    public async updateProviderRatingStats(
+        providerId: string,
+        newStars: number,
+        session?: any
+    ) {
+        const provider = await Provider.findOne({ userId: providerId }).session(session);
+        if (!provider) return;
+
+        // Update Raw Stats
+        provider.totalStars = (provider.totalStars || 0) + newStars;
+        provider.reviewCount = (provider.reviewCount || 0) + 1;
+
+        // R = Raw Average
+        const rawAverage = provider.totalStars / provider.reviewCount;
+        provider.rating = parseFloat(rawAverage.toFixed(2));
+
+        // Calculate Weighted Rating (The Weapon)
+        provider.weightedRating = calculateWeightedRating(
+            provider.reviewCount,
+            provider.rating
+        );
+
+        await provider.save({ session });
+    }
 
 
 

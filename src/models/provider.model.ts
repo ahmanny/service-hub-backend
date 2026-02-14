@@ -62,6 +62,10 @@ export interface IProviderProfile {
     };
 
     rating: number;
+    totalStars: number;      // Sum of all stars received
+    reviewCount: number;     // Number of actual ratings given
+    weightedRating: number;
+
     status: ProfileStatus
     verification?: {
         idUri: string;
@@ -155,6 +159,9 @@ const ProviderSchema = new Schema<IProviderProfile>(
         },
 
         rating: { type: Number, default: 0, min: 0, max: 5 },
+        totalStars: { type: Number, default: 0 },
+        reviewCount: { type: Number, default: 0 },
+        weightedRating: { type: Number, default: 0 },
         status: {
             type: String,
             enum: ['pending', 'approved', 'rejected'],

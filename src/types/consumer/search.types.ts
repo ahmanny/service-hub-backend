@@ -2,7 +2,6 @@ export interface SearchPayload {
     serviceType: string,
     lng: number,
     lat: number,
-    maxDist: number
 }
 
 export type LocationTuple = [number, number];
