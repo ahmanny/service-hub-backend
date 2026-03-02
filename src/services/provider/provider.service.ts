@@ -16,6 +16,7 @@ import BadRequestException from '../../exceptions/BadRequestException';
 import { CloudinaryService } from '../cloudinary.service';
 import { Wallet } from '../../models/wallet.model';
 import { calculateWeightedRating } from '../../utils/ranking.utils';
+import NotFoundException from '../../exceptions/NotFoundException';
 
 
 class ProviderServiceClass {
@@ -743,8 +744,13 @@ class ProviderServiceClass {
         newStars: number,
         session?: any
     ) {
-        const provider = await Provider.findOne({ userId: providerId }).session(session);
-        if (!provider) return;
+        const provider = await Provider.findOne({ _id: providerId }).session(session);
+
+        if (!provider) {
+            throw new NotFoundException(`Provider with ID ${providerId} not found`);
+        }
+
+        console.log(`Updating rating stats for provider ${providerId}: +${newStars} stars`);
 
         // Update Raw Stats
         provider.totalStars = (provider.totalStars || 0) + newStars;

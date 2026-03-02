@@ -49,7 +49,6 @@ export const bookProvider = (): RequestHandler => {
 export const getBookings = (): RequestHandler => {
     return async (req: Request, res: Response): Promise<void> => {
         try {
-            console.log("Am in the controller")
             const consumerId = req.consumerProfile?._id;
             const providerId = req.providerProfile?._id;
 
@@ -116,7 +115,7 @@ export const handleBookingAction = (): RequestHandler => {
     return async (req: Request, res: Response): Promise<void> => {
         try {
             const { bookingId } = req.params;
-            const { action, reason, newScheduledAt, disputeReason } = req.body;
+            const { action, reason, newScheduledAt, disputeReason, rating, comment } = req.body;
 
             const actorProfile = req.providerProfile || req.consumerProfile;
             if (!actorProfile) throw new UnauthorizedAccessException("Identity not found");
@@ -126,6 +125,8 @@ export const handleBookingAction = (): RequestHandler => {
                 bookingId,
                 action,
                 reason,
+                rating,
+                comment,
                 newScheduledAt,
                 disputeReason,
                 userId: actorProfile._id.toString(),

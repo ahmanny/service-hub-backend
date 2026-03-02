@@ -203,6 +203,13 @@ class BookingServiceClass {
         const provider: any = booking.providerId;
         const consumer: any = booking.consumerId;
 
+        let ratingData = null;
+        if (booking.isRated) {
+            ratingData = await Rating.findOne({ bookingId: booking._id })
+                .select("rating comment createdAt")
+                .lean();
+        }
+
         const isActiveOrDone = ["accepted", "in_progress", "completed"].includes(booking.status);
 
         return {
@@ -222,7 +229,14 @@ class BookingServiceClass {
             disputeId: booking.disputeId?.toString(),
             autoStarted: booking.autoStarted || false,
 
-            // Full Timeline
+            isRated: booking.isRated || false,
+            rating: ratingData ? {
+                score: ratingData.rating,
+                comment: ratingData.comment,
+                createdAt: ratingData.createdAt.toISOString(),
+            } : null,
+
+            // Full Timeliners
             scheduledAt: booking.scheduledAt.toISOString(),
             deadlineAt: booking.deadlineAt?.toISOString(),
             acceptedAt: booking.acceptedAt?.toISOString(),

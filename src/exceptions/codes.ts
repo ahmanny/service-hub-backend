@@ -14,3 +14,4 @@ export const TooManyAttemptsExceptionCode = 113
 export const BadRequestExceptionCode = 114
 export const PayloadTooLargeExceptionCode = 115
 export const UnprocessableEntityExceptionCode = 116
+export const NotFoundExceptionCode = 117

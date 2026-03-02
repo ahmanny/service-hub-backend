@@ -403,7 +403,7 @@ class ConsumerServiceClass {
         });
 
         return {
-            provider: { ...provider, bookedSlots }
+            provider: { ...provider, bookedSlots, isTopRated: provider.weightedRating > 4.5 }
         };
     }
 

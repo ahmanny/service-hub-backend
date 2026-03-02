@@ -36,7 +36,7 @@ export interface IPayoutDetails {
 }
 
 // Interface
-export interface IProviderProfile {
+export interface IProviderProfile extends mongoose.Document {
     userId: Types.ObjectId;
     firstName: string;
     lastName: string;

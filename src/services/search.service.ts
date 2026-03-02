@@ -62,22 +62,43 @@ class SearchServiceClass {
                     query: {
                         serviceType: type,
                         status: "approved",
-                        isAvailable: true
+                        isAvailable: true,
+                        "serviceArea.location": { $exists: true }
                     },
                 },
             },
             {
                 $addFields: {
-                    // Calculate distance to their "Service Area" center as well
+                    // Haversine Formula for distanceFromServiceCenter
                     distanceFromServiceCenter: {
-                        $divide: [
+                        $multiply: [
+                            6371, // Earth's radius in KM
                             {
-                                $geoDistance: {
-                                    near: { type: "Point", coordinates: [lng, lat] },
-                                    onField: "serviceArea.location"
+                                $acos: {
+                                    $add: [
+                                        {
+                                            $multiply: [
+                                                { $sin: { $divide: [{ $multiply: [lat, Math.PI] }, 180] } },
+                                                { $sin: { $divide: [{ $multiply: [{ $arrayElemAt: ["$serviceArea.location.coordinates", 1] }, Math.PI] }, 180] } }
+                                            ]
+                                        },
+                                        {
+                                            $multiply: [
+                                                { $cos: { $divide: [{ $multiply: [lat, Math.PI] }, 180] } },
+                                                { $cos: { $divide: [{ $multiply: [{ $arrayElemAt: ["$serviceArea.location.coordinates", 1] }, Math.PI] }, 180] } },
+                                                {
+                                                    $cos: {
+                                                        $divide: [
+                                                            { $multiply: [{ $subtract: [{ $arrayElemAt: ["$serviceArea.location.coordinates", 0] }, lng] }, Math.PI] },
+                                                            180
+                                                        ]
+                                                    }
+                                                }
+                                            ]
+                                        }
+                                    ]
                                 }
-                            },
-                            1000
+                            }
                         ]
                     }
                 }
@@ -85,17 +106,18 @@ class SearchServiceClass {
             {
                 $match: {
                     $or: [
-                        { offersShopVisit: true }, // They have a shop nearby
+                        { offersShopVisit: true },
                         {
                             homeServiceAvailable: true,
                             $expr: { $lte: ["$distanceFromServiceCenter", "$serviceArea.radiusKm"] }
-                        } // Or you are in their mobile radius
+                        }
                     ]
                 }
             },
             {
                 $sort: {
                     weightedRating: -1,
+                    rating: -1,
                     distanceFromShop: 1
                 }
             },
@@ -114,7 +136,9 @@ class SearchServiceClass {
             rating: provider.rating || 0,
             reviewCount: provider.reviewCount || 0,
             profilePicture: provider.profilePicture || null,
-            distance: provider.straightDistance ? provider.straightDistance.toFixed(1) : "0.0",
+            distance: provider.distanceFromShop != null
+                ? Number(provider.distanceFromShop.toFixed(2))
+                : 0,
             duration: null,
             isClosest: index === 0,
             isTopRated: provider.weightedRating > 4.5

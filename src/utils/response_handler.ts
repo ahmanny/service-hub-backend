@@ -14,6 +14,7 @@ import BadRequestException from '../exceptions/BadRequestException';
 import PayloadTooLargeException from '../exceptions/PayloadTooLargeException';
 import UnprocessableEntityException from '../exceptions/UnprocessableEntityException';
 import InternalServerErrorException from '../exceptions/InternalServerErrorException';
+import NotFoundException from '../exceptions/NotFoundException';
 const HTTP_OK = 200;
 const HTTP_CREATED = 201;
 const HTTP_BAD_REQUEST = 400;
@@ -54,7 +55,9 @@ export const error_handler = (error: unknown, req: Request, res: Response) => {
 		}
 
 		// 404 Not Found
-		if (error instanceof ResourceNotFoundException) {
+		if (error instanceof ResourceNotFoundException||
+			error instanceof NotFoundException
+		) {
 			return res.status(HTTP_RESOURCE_NOT_FOUND).json({
 				message: error.message,
 				code: error.code,
