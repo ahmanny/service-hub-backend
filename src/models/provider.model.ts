@@ -1,4 +1,4 @@
-import mongoose, { Schema, Types, model } from "mongoose";
+import { Schema, Types, model, Document } from "mongoose";
 import { ServiceType } from "../types/service.types";
 
 // Types
@@ -36,7 +36,7 @@ export interface IPayoutDetails {
 }
 
 // Interface
-export interface IProviderProfile extends mongoose.Document {
+export interface IProviderProfile extends Document {
     userId: Types.ObjectId;
     firstName: string;
     lastName: string;
@@ -77,6 +77,7 @@ export interface IProviderProfile extends mongoose.Document {
     availability: IAvailabilityDay[];
 
     payoutDetails?: IPayoutDetails;
+    paystackRecipientCode?: string;
 }
 
 // Schemas
@@ -185,6 +186,7 @@ const ProviderSchema = new Schema<IProviderProfile>(
             type: PayoutDetailsSchema,
             default: null
         },
+        paystackRecipientCode: { type: String, default: null }
     },
     { timestamps: true }
 );

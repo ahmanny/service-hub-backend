@@ -17,6 +17,7 @@ import { CloudinaryService } from '../cloudinary.service';
 import { Wallet } from '../../models/wallet.model';
 import { calculateWeightedRating } from '../../utils/ranking.utils';
 import NotFoundException from '../../exceptions/NotFoundException';
+import { PaymentService } from '../payment.service';
 
 
 class ProviderServiceClass {
@@ -709,6 +710,14 @@ class ProviderServiceClass {
             throw new MissingParameterException("All bank account details are required for payout setup.");
         }
 
+        const recipientData = await PaymentService.createTransferRecipient(
+            accountName,
+            accountNumber,
+            bankCode
+        );
+
+        const paystackRecipientCode = recipientData.recipient_code;
+
         const updatedProfile = await Provider.findByIdAndUpdate(
             providerId,
             {
@@ -719,7 +728,8 @@ class ProviderServiceClass {
                     accountNumber,
                     accountName,
                     verifiedAt: new Date()
-                }
+                },
+                paystackRecipientCode
             },
             {
                 new: true,
@@ -738,7 +748,7 @@ class ProviderServiceClass {
 
 
     // This method is called after a new rating is created to update the provider's aggregate rating stats.
-    
+
     public async updateProviderRatingStats(
         providerId: string,
         newStars: number,

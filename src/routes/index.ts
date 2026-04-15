@@ -7,6 +7,7 @@ import { bookingRoutes } from './booking.route';
 import { AuthMiddleware } from '../middlewares';
 import { userRoutes } from './user.routes';
 import { SearchRoutes } from './search.routes';
+import { webhookRoutes } from './webhook.route';
 const routes = Router();
 const Middleware = new AuthMiddleware();
 
@@ -16,6 +17,7 @@ routes.get('/', (_req, res) => {
 
 // group by domain
 routes.use('/auth', authRoutes);
+routes.use("/webhooks", webhookRoutes);
 
 
 routes.use(Middleware.validateToken)
