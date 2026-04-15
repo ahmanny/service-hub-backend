@@ -418,8 +418,6 @@ class BookingServiceClass {
             await booking.save({ session });
             await session.commitTransaction();
 
-            this.sendStatusNotification(booking, action).catch(console.error);
-
             // Notification lookup
             const [consumer, provider] = await Promise.all([
                 Consumer.findById(booking.consumerId).select('firstName lastName').lean(),
@@ -428,6 +426,11 @@ class BookingServiceClass {
 
             const consumerName = consumer ? `${consumer.firstName} ${consumer.lastName}` : "A client";
             const providerName = provider ? `${provider.firstName} ${provider.lastName}` : "A provider";
+
+            // 2. Pass these to your notification method (Update the signature to accept providerName)
+            this.sendStatusNotification(booking, action, providerName).catch(console.error);
+
+
 
             return {
                 ...booking.toObject(),
@@ -627,7 +630,8 @@ class BookingServiceClass {
     private async sendStatusNotification(
         booking: IBooking,
         action: "accept" | "decline" | "start" | "complete" | "reschedule" | "dispute" | "confirm" | "rate"
-            | "expired" | "auto_start" | "cancel" | "reminder_1h" | "imminent_warning"
+            | "expired" | "auto_start" | "cancel" | "reminder_1h" | "imminent_warning",
+        providerName?: string
     ) {
         try {
             const providerActions = ["accept", "decline", "start", "complete"];
@@ -650,7 +654,11 @@ class BookingServiceClass {
             // Content based on WHO is receiving it
             const getNotificationContent = (targetType: 'consumer' | 'provider') => {
                 const contents: Record<string, { title: string, body: string }> = {
-                    accept: { title: "Booking Accepted! ✅", body: "Your booking has been accepted." },
+                    accept: {
+                        title: "Provider Accepted! 💳",
+                        // We use providerName here. Note: Ensure providerName is passed or fetched.
+                        body: `${providerName} accepted your booking. Tap to complete payment and confirm.`
+                    },
                     decline: { title: "Booking Declined ❌", body: "The provider cannot fulfill your request." },
                     dispute: { title: "Dispute Raised ⚠️", body: "A dispute has been opened for your booking." },
                     complete: { title: "Job Completed 🏁", body: "Job marked as done. You have 2 hours to review." },
@@ -699,15 +707,26 @@ class BookingServiceClass {
                 const content = getNotificationContent(target.type);
                 if (!content) return Promise.resolve();
 
+                // Prepare metadata
+                const data: any = {
+                    bookingId: booking._id.toString(),
+                    screen: "BookingDetails",
+                    action
+                };
+
+                // Add the specific type for the payment prompt
+                if (action === "accept") {
+                    data.type = "PAYMENT_REQUIRED";
+                }
+
                 return NotificationService.sendByProfile(
                     target.type,
                     target.id.toString(),
                     content.title,
                     content.body,
-                    { bookingId: booking._id.toString(), screen: "BookingDetails", action }
+                    data
                 );
             }));
-
         } catch (err) {
             console.error("Non-blocking Notification Error:", err);
         }
