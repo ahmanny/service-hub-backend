@@ -2,7 +2,7 @@ import { Request, RequestHandler, Response } from "express";
 import crypto from "crypto";
 import { PaymentService } from "../services/payment.service";
 import { ok_handler, error_handler } from "../utils/response_handler";
-import { BookingService } from "../services/booking.service";
+import { PaymentWebhookFailure } from "../models/payment-webhook-failure.model";
 
 /**
  * Initialize payment for a booking.
@@ -15,14 +15,10 @@ export const initializePayment = (): RequestHandler => {
             const consumer = req.consumerProfile;
             if (!consumer) throw new Error("Unauthorized");
 
-            const booking = await (await import("../models/booking.model")).Booking
-                .findById(bookingId);
-            if (!booking) throw new Error("Booking not found");
-
             const data = await PaymentService.initializePayment({
                 bookingId,
                 userId: consumer.userId.toString(),
-                amountKobo: booking.price.total * 100,
+                consumerId: consumer._id.toString(),
             });
 
             ok_handler(res, "Payment initialized", data);
@@ -66,9 +62,22 @@ export const paystackWebhook = (): RequestHandler => {
 
             res.sendStatus(200); // Acknowledge receipt to Paystack
 
-        } catch (error) {
+        } catch (error: any) {
             console.error("Webhook error:", error);
-            res.sendStatus(200); // Always return 200 to Paystack
+
+            try {
+                await PaymentWebhookFailure.create({
+                    event: req.body?.event,
+                    reference: req.body?.data?.reference,
+                    payload: req.body || {},
+                    error: error?.message || "Unknown webhook processing error",
+                    retryable: true,
+                });
+            } catch (deadLetterError) {
+                console.error("Failed to persist webhook dead-letter:", deadLetterError);
+            }
+
+            res.sendStatus(500);
         }
     };
 };

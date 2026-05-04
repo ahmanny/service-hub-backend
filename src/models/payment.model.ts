@@ -1,5 +1,5 @@
 import { Document, Schema, Types, model } from "mongoose";
-import { PaymentStatus } from "../types/booking.types";
+import { FinancialStatus, PaymentStatus } from "../types/booking.types";
 
 
 export interface IPayment extends Document {
@@ -7,6 +7,7 @@ export interface IPayment extends Document {
     reference: string;
     amount: number; // in naira
     status: PaymentStatus;
+    financialStatus?: FinancialStatus;
     transferCode?: string;
     paidAt?: Date;
     createdAt?: Date;
@@ -34,6 +35,10 @@ const PaymentSchema = new Schema<IPayment>(
             type: String,
             enum: Object.values(PaymentStatus),
             default: PaymentStatus.PENDING,
+        },
+        financialStatus: {
+            type: String,
+            enum: Object.values(FinancialStatus),
         },
         transferCode: { type: String },
         paidAt: { type: Date },

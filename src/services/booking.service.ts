@@ -5,7 +5,7 @@ import MissingParameterException from "../exceptions/MissingParameterException";
 import ResourceNotFoundException from "../exceptions/ResourceNotFoundException";
 import { Booking, IBooking } from "../models/booking.model";
 import { IProviderShopAddress, Provider } from "../models/provider.model";
-import { BookingStatus, CreateBookingPayload, DisputeReason, fetchBookingsPayload } from "../types/booking.types";
+import { BookingStatus, CreateBookingPayload, DisputeReason, fetchBookingsPayload, PaymentStatus, PayoutStatus } from "../types/booking.types";
 import { Consumer } from "../models/consumer.model";
 import { WalletService } from "./wallet/wallet.service";
 import mongoose from "mongoose";
@@ -364,13 +364,33 @@ class BookingServiceClass {
                 case "confirm":
                     if (!isConsumer) throw new ForbiddenAccessException("Only customers can confirm completion.");
 
-                    const validStates = [BookingStatus.COMPLETION_PENDING, BookingStatus.IN_PROGRESS];
-                    if (!validStates.includes(booking.status)) {
+                    if (booking.status !== BookingStatus.COMPLETION_PENDING) {
                         throw new BadRequestException("Booking cannot be confirmed at this stage.");
                     }
 
-                    await BookingStatusManager.transition(booking, BookingStatus.COMPLETED, session);
-                    await WalletService.handleJobCompletion(booking, session);
+                    const confirmedBooking = await Booking.findOneAndUpdate(
+                        {
+                            _id: booking._id,
+                            status: BookingStatus.COMPLETION_PENDING,
+                            isDisputed: { $ne: true },
+                        },
+                        {
+                            $set: {
+                                status: BookingStatus.COMPLETED,
+                                completedAt: new Date(),
+                            },
+                        },
+                        { new: true, session }
+                    );
+
+                    if (!confirmedBooking) {
+                        throw new BadRequestException("Booking could not be confirmed. It may already be disputed or completed.");
+                    }
+
+                    await WalletService.movePendingToAvailable(confirmedBooking, session);
+                    booking.status = confirmedBooking.status;
+                    booking.completedAt = confirmedBooking.completedAt;
+                    booking.payoutStatus = PayoutStatus.AVAILABLE;
                     break;
 
                 case "rate":
@@ -495,19 +515,36 @@ class BookingServiceClass {
         const fiveMinutesLate = new Date(now - 5 * 60000);
         const fifteenMinutesLate = new Date(now - 15 * 60000);
 
-        // Find bookings for Auto-Start (15+ mins late)
+        // Find all accepted bookings that are 15+ mins past scheduled time
         const zombies = await Booking.find({
             status: BookingStatus.ACCEPTED,
             scheduledAt: { $lte: fifteenMinutesLate }
         });
 
         for (const b of zombies) {
+            // If consumer never paid — cancel the booking
+            if (b.paymentStatus !== PaymentStatus.HELD) {
+                b.cancelMessage = "System: Booking auto-cancelled — payment was not completed.";
+                await BookingStatusManager.transition(b, BookingStatus.CANCELLED);
+
+                this.sendStatusNotification(b, 'auto_cancel').catch(err =>
+                    console.error(`[CRON NOTIF ERROR] Auto-cancel for ${b._id}:`, err));
+
+                console.log(`[CRON] Auto-cancelled unpaid booking: ${b._id}`);
+                continue; // Skip to next booking
+            }
+
+            // Consumer paid — auto start as normal
             b.autoStarted = true;
             await BookingStatusManager.transition(b, BookingStatus.IN_PROGRESS);
+
             this.sendStatusNotification(b, 'auto_start').catch(err =>
                 console.error(`[CRON NOTIF ERROR] Zombie start for ${b._id}:`, err));
+
+            console.log(`[CRON] Auto-started paid booking: ${b._id}`);
         }
-        // We only nudge if the lateWarningSent is still false
+
+        // Nudge provider if 5+ mins late and warning not sent yet
         const needsNudge = await Booking.find({
             status: BookingStatus.ACCEPTED,
             scheduledAt: { $lte: fiveMinutesLate },
@@ -575,11 +612,28 @@ class BookingServiceClass {
             session.startTransaction();
 
             try {
-                // Move to terminal COMPLETED state via Manager
-                await BookingStatusManager.transition(booking, BookingStatus.COMPLETED, session);
+                const completedBooking = await Booking.findOneAndUpdate(
+                    {
+                        _id: booking._id,
+                        status: BookingStatus.COMPLETION_PENDING,
+                        isDisputed: { $ne: true },
+                        disputeDeadline: { $lte: now },
+                    },
+                    {
+                        $set: {
+                            status: BookingStatus.COMPLETED,
+                            completedAt: now,
+                        },
+                    },
+                    { new: true, session }
+                );
 
-                //  Trigger Wallet Service to move money from Escrow to Provider
-                await WalletService.handleJobCompletion(booking, session);
+                if (!completedBooking) {
+                    await session.abortTransaction();
+                    continue;
+                }
+
+                await WalletService.movePendingToAvailable(completedBooking, session);
 
                 await session.commitTransaction();
                 console.log(`[CRON] Payout successful for Booking: ${booking._id}`);
@@ -630,57 +684,77 @@ class BookingServiceClass {
     private async sendStatusNotification(
         booking: IBooking,
         action: "accept" | "decline" | "start" | "complete" | "reschedule" | "dispute" | "confirm" | "rate"
-            | "expired" | "auto_start" | "cancel" | "reminder_1h" | "imminent_warning",
+            | "expired" | "auto_start" | "cancel" | "reminder_1h" | "imminent_warning" | "auto_cancel",
         providerName?: string
     ) {
         try {
             const providerActions = ["accept", "decline", "start", "complete"];
             const consumerActions = ["reschedule", "dispute", "confirm", "rate"];
-            const systemActions = ["expired", "auto_start"];
+            const systemActions = ["expired", "auto_start", "auto_cancel"];
 
             const targets: Array<{ type: 'consumer' | 'provider', id: any }> = [];
 
-            // Identify Targets
             if (systemActions.includes(action) || action === 'cancel') {
                 targets.push({ type: 'consumer', id: booking.consumerId });
                 targets.push({ type: 'provider', id: booking.providerId });
             } else if (providerActions.includes(action)) {
                 targets.push({ type: 'consumer', id: booking.consumerId });
             } else if (consumerActions.includes(action)) {
-                // If consumer confirms or reschedules, notify the provider
                 targets.push({ type: 'provider', id: booking.providerId });
             }
 
-            // Content based on WHO is receiving it
             const getNotificationContent = (targetType: 'consumer' | 'provider') => {
                 const contents: Record<string, { title: string, body: string }> = {
                     accept: {
                         title: "Provider Accepted! 💳",
-                        // We use providerName here. Note: Ensure providerName is passed or fetched.
                         body: `${providerName} accepted your booking. Tap to complete payment and confirm.`
                     },
-                    decline: { title: "Booking Declined ❌", body: "The provider cannot fulfill your request." },
-                    dispute: { title: "Dispute Raised ⚠️", body: "A dispute has been opened for your booking." },
-                    complete: { title: "Job Completed 🏁", body: "Job marked as done. You have 2 hours to review." },
-
-                    // NEW: Confirm Content
+                    decline: {
+                        title: "Booking Declined ❌",
+                        body: "The provider cannot fulfill your request."
+                    },
+                    dispute: {
+                        title: "Dispute Raised ⚠️",
+                        body: "A dispute has been opened for your booking."
+                    },
+                    complete: {
+                        title: "Job Completed 🏁",
+                        body: "Job marked as done. You have 2 hours to confirm or raise a dispute."
+                    },
                     confirm: {
                         title: "Payment Released! 💰",
-                        body: "The client has confirmed the job. Funds have been moved to your wallet."
+                        body: "The client confirmed the job. Funds have been moved to your wallet."
                     },
                     rate: {
-                        title: "Rating Received! 📊",
+                        title: "Rating Received! ⭐",
                         body: "You've received a new rating for your service."
                     },
-                    start: { title: "Job Started 🚀", body: `The service for ${booking.serviceName} has begun.` },
-                    reschedule: { title: "Reschedule Request 🕒", body: "A new time has been requested for the booking." },
-                    cancel: { title: "Booking Cancelled 🛑", body: "The booking has been cancelled." },
-
+                    start: {
+                        title: "Job Started 🚀",
+                        body: `Your ${booking.serviceName} service has officially begun.`
+                    },
+                    reschedule: {
+                        title: "Reschedule Request 🕒",
+                        body: "A new time has been requested for your booking."
+                    },
+                    cancel: {
+                        title: "Booking Cancelled 🛑",
+                        body: targetType === 'consumer'
+                            ? "Your booking has been cancelled."
+                            : "A booking has been cancelled by the client."
+                    },
+                    // New dedicated auto_cancel — different from manual cancel
+                    auto_cancel: {
+                        title: "Booking Auto-Cancelled ⏰",
+                        body: targetType === 'consumer'
+                            ? `Your booking for ${booking.serviceName} was cancelled because payment was not completed in time.`
+                            : `A booking for ${booking.serviceName} was auto-cancelled — the client did not complete payment.`
+                    },
                     auto_start: {
                         title: "Job Auto-Started 🚀",
                         body: targetType === 'provider'
-                            ? `The timer for ${booking.serviceName} has started automatically.`
-                            : `Your service for ${booking.serviceName} has officially begun.`
+                            ? `The timer for ${booking.serviceName} has started automatically. Please proceed with the service.`
+                            : `Your ${booking.serviceName} service has officially begun.`
                     },
                     expired: {
                         title: "Request Expired ⏰",
@@ -690,31 +764,30 @@ class BookingServiceClass {
                     },
                     reminder_1h: {
                         title: "Upcoming Booking 📅",
-                        body: `Reminder: Your booking for ${booking.serviceName} is scheduled for 1 hour from now.`
+                        body: targetType === 'provider'
+                            ? `Reminder: You have a ${booking.serviceName} booking in 1 hour. Get ready!`
+                            : `Reminder: Your ${booking.serviceName} booking is in 1 hour.`
                     },
                     imminent_warning: {
                         title: "Are you there? ⏳",
                         body: targetType === 'provider'
-                            ? `You're late for your appointment! Start the job now to avoid system auto-start.`
-                            : `The provider is slightly behind schedule for your ${booking.serviceName} booking.`
+                            ? `You're late for your ${booking.serviceName} appointment! Start now to avoid auto-start.`
+                            : `Your provider is slightly behind schedule for ${booking.serviceName}. Hang tight!`
                     }
                 };
                 return contents[action];
             };
 
-            // Dispatch Notifications
             await Promise.all(targets.map(target => {
                 const content = getNotificationContent(target.type);
                 if (!content) return Promise.resolve();
 
-                // Prepare metadata
                 const data: any = {
                     bookingId: booking._id.toString(),
                     screen: "BookingDetails",
                     action
                 };
 
-                // Add the specific type for the payment prompt
                 if (action === "accept") {
                     data.type = "PAYMENT_REQUIRED";
                 }

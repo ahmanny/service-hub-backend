@@ -60,6 +60,24 @@ export enum PayoutStatus {
     COMPLETED = 'completed',
 }
 
+export enum FinancialStatus {
+    ESCROW_HELD = 'escrow_held',
+    PENDING_EARNING = 'pending_earning',
+    AVAILABLE = 'available',
+    DISPUTED = 'disputed',
+    RELEASED = 'released',
+    REFUNDED = 'refunded',
+}
+
+export enum LedgerEntryType {
+    CREDIT_ESCROW = 'credit_escrow',
+    CREDIT_PENDING = 'credit_pending',
+    MOVE_PENDING_TO_AVAILABLE = 'move_pending_to_available',
+    RELEASE_TO_PROVIDER = 'release_to_provider',
+    DISPUTE_HOLD = 'dispute_hold',
+    REFUND = 'refund',
+}
+
 export enum DisputeReason {
     NO_SHOW = 'no_show',
     POOR_QUALITY = 'poor_quality',

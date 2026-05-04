@@ -3,12 +3,17 @@ import { Wallet } from "../../models/wallet.model";
 import mongoose from "mongoose";
 
 export class WalletJobService {
+    /**
+     * Legacy safety net for old pending transactions that have a clearsAt value.
+     * New marketplace escrow releases are handled by BookingService after the
+     * 2-hour disputeDeadline, not by a separate wallet clearing delay.
+     */
     public static async processMatureTransactions() {
         const now = new Date();
         const matureTxns = await Transaction.find({
             status: "pending",
             purpose: "booking_revenue",
-            clearsAt: { $lte: now },
+            clearsAt: { $exists: true, $lte: now },
         });
 
         if (matureTxns.length === 0) return;

@@ -1,40 +1,88 @@
-# Ecommerce-backend
-# Node Express Mongo TypeScript 
+# Service Hub Backend
 
-## Features and Included Libraries
+This is the main REST API for Service Hub / Proxxi. It powers the consumer mobile app, the provider mobile app, and the future web/admin experience.
 
+## What It Does
 
-- **ExpressJS**: The foundation of the application, Express is a fast and minimalist web framework for Node.js, making it easy to build robust and scalable APIs.
+- Handles phone OTP authentication for consumers and providers.
+- Manages JWT sessions, refresh tokens, logout, and role-based access.
+- Stores users, consumers, providers, bookings, payments, wallets, transactions, disputes, ratings, wishlists, and OTP records in MongoDB.
+- Supports provider onboarding, profile updates, services, availability, payout details, shop location, service areas, and dashboard data.
+- Supports consumer profile setup, address management, provider discovery, provider details, and booking requests.
+- Manages booking lifecycle actions, booking details, rescheduling data, payment prompts, and status transitions.
+- Integrates Paystack payment initialization and webhook handling.
+- Sends push notifications through Expo push tokens.
+- Uses Cloudinary for uploaded media and Mailjet/Twilio-related utilities for communication flows.
+- Includes wallet migration and provider seeding scripts.
 
-- **Mongoose**: Mongoose is used as the MongoDB client, providing an elegant way to interact with MongoDB databases and define data schemas.
+## Tech Stack
 
-- **axios**: Axios is included for making HTTP requests, simplifying the process of fetching data from external sources or APIs.
+- Node.js
+- Express
+- TypeScript
+- MongoDB with Mongoose
+- JWT authentication
+- Paystack integration
+- Expo Server SDK
+- Cloudinary
+- Mailjet
+- Twilio utilities
+- Node Cron
 
-- **bcrypt**: This library is used for encrypting and decrypting sensitive data, such as passwords and tokens, enhancing the security of your application.
+## Folder Structure
 
-- **cors**: The `cors` npm package is included to handle Cross-Origin Resource Sharing, allowing your API to be accessed by clients from different domains.
+- `src/controllers`: HTTP request handlers grouped by domain.
+- `src/services`: Business logic for auth, bookings, payments, providers, consumers, search, wallet, notifications, and email.
+- `src/models`: Mongoose models and schemas.
+- `src/routes`: API routes for auth, users, consumers, providers, bookings, search, admin, and webhooks.
+- `src/middlewares`: Auth and upload middleware.
+- `src/configs`: Database, server, JWT, Cloudinary, Mailjet, and OTP policy configuration.
+- `src/utils`: Shared helpers for tokens, OTP, booking status, ranking, routing, and responses.
+- `src/scripts`: One-off scripts such as provider seeding and wallet migration.
+- `src/cron`: Scheduled jobs.
 
-- **helmet**: Helmet helps secure your Express apps by setting various HTTP headers to protect against common web vulnerabilities.
+## Getting Started
 
-- **morgan**: Morgan is used for logging HTTP requests, making it easier to debug and monitor your application.
+Install dependencies:
 
-- **http-errors**: The `http-errors` package simplifies the creation of HTTP error responses, improving error handling in your application.
+```bash
+npm install
+```
 
-- **nodemon**: Nodemon is a utility that monitors for changes in your code and automatically restarts the server during development, saving you time and effort.
+Run the API in development:
 
-- **ts-node**: TypeScript Node.js is used to execute TypeScript files directly, making it easy to write and run TypeScript code without transpiling.
+```bash
+npm run dev
+```
 
-- **TypeScript**: TypeScript is a strongly typed superset of JavaScript that enhances code quality and provides better tooling for modern JavaScript development.
+Build TypeScript:
 
-- **ESLint**: ESLint is included to enforce code style and maintainability rules, ensuring your code follows best practices and stays consistent.
+```bash
+npm run build
+```
 
-These libraries and features are carefully selected to provide you with a solid foundation for building secure, maintainable, and scalable Node.js applications with TypeScript. You can further customize and extend this starter kit to meet your specific project requirements.
+Run the compiled server:
 
-## Requirements
+```bash
+npm start
+```
 
-Make sure you have the following software installed on your system:
+Run the API with a local tunnel:
 
-- [Node.js](https://nodejs.org/) - JavaScript runtime environment
-- [npm](https://www.npmjs.com/) or [Yarn](https://yarnpkg.com/) - Package managers for Node.js
-- [MongoDB CLI](https://docs.mongodb.com/manual/installation/) (optional) - If you want to connect to a MongoDB database on your local system.
-# service-hub-backend
+```bash
+npm run server:tunnel
+```
+
+## Useful Scripts
+
+- `npm run dev`: Start the development server with Nodemon.
+- `npm run build`: Compile TypeScript into `dist`.
+- `npm start`: Run the compiled API.
+- `npm run tunnel`: Expose port `6000` with LocalTunnel.
+- `npm run server:tunnel`: Run the API and tunnel together.
+- `npm run seed:providers`: Seed provider data.
+- `npm run migrate:wallets`: Run wallet migration.
+
+## Notes
+
+This API is the source of truth for the mobile apps and should remain compatible with both `Consumer-app` and `Provider-app`. Web and admin functionality should also build against this API as the web folder grows.

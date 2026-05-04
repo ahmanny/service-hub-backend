@@ -8,7 +8,7 @@ export interface ITransaction extends Document {
     amount: number;
     type: "credit" | "debit";
     status: "pending" | "completed" | "failed" | "reversed";
-    purpose: "booking_revenue" | "withdrawal" | "refund" | "platform_fee" | "bonus";
+    purpose: "booking_revenue" | "escrow" | "withdrawal" | "refund" | "platform_fee" | "bonus";
     reference: string;          // Unique ref 
     description: string;
     metadata?: Record<string, any>;
@@ -53,7 +53,7 @@ const TransactionSchema = new Schema<ITransaction>(
         },
         purpose: {
             type: String,
-            enum: ["booking_revenue", "withdrawal", "refund", "platform_fee", "bonus"],
+            enum: ["booking_revenue", "escrow", "withdrawal", "refund", "platform_fee", "bonus"],
             required: true,
         },
         reference: {
@@ -78,5 +78,6 @@ const TransactionSchema = new Schema<ITransaction>(
 
 // Index for fast lookups on history
 TransactionSchema.index({ createdAt: -1 });
+TransactionSchema.index({ bookingId: 1, purpose: 1, type: 1 }, { unique: true, sparse: true });
 
 export const Transaction = mongoose.model<ITransaction>("Transaction", TransactionSchema);

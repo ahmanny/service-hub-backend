@@ -1,5 +1,5 @@
 import { ClientSession } from "mongoose";
-import { BookingStatus } from "../types/booking.types";
+import { BookingStatus, PaymentStatus } from "../types/booking.types";
 import Exception from "../exceptions/Exception";
 import { canTransitionTo } from "./booking-state.utils";
 import { IBooking } from "../models/booking.model";
@@ -33,6 +33,12 @@ export class BookingStatusManager {
                 break;
 
             case BookingStatus.IN_PROGRESS:
+                // Guard: don't allow start if consumer hasn't paid
+                if (booking.paymentStatus !== PaymentStatus.HELD) {
+                    throw new Exception(
+                        "Cannot start service — payment has not been received yet."
+                    );
+                }
                 booking.actualStartTime = now;
                 break;
 
