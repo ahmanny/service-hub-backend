@@ -227,3 +227,12 @@ const BookingSchema = new Schema<IBooking>(
 BookingSchema.index({ "location.geoAddress.location": "2dsphere" });
 
 export const Booking = mongoose.model<IBooking>("Booking", BookingSchema);
+
+export const getBookings = (query?: any) => {
+    if (query) {
+        return Booking.find(query).sort({ createdAt: -1 });
+    }
+    return Booking.find().sort({ createdAt: -1 });
+};
+
+export const getBookingById = (id: string) => Booking.findById(id);

@@ -8,6 +8,13 @@ export interface IConsumerAddress {
   isDefault: boolean;
 }
 
+export interface IConsumerVerification {
+  idUri: string;
+  selfieUri: string;
+}
+
+export type ConsumerVerificationStatus = 'pending' | 'verified' | 'rejected';
+
 export interface IConsumerProfile {
   userId: Types.ObjectId;
   firstName?: string;
@@ -15,6 +22,9 @@ export interface IConsumerProfile {
   avatarUrl?: string;
 
   addresses: IConsumerAddress[];
+
+  verification?: IConsumerVerification;
+  verificationStatus?: ConsumerVerificationStatus;
 }
 
 const AddressSchema = new Schema<IConsumerAddress>({
@@ -39,7 +49,17 @@ const ConsumerSchema = new Schema<IConsumerProfile>({
   lastName: { type: String, trim: true },
   avatarUrl: { type: String },
 
-  addresses: [AddressSchema]
+  addresses: [AddressSchema],
+
+  verification: {
+    idUri: { type: String },
+    selfieUri: { type: String }
+  },
+  verificationStatus: { 
+    type: String, 
+    enum: ['pending', 'verified', 'rejected'],
+    default: 'pending'
+  }
 }, {
   timestamps: true,
 });

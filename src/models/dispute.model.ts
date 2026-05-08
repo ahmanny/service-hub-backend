@@ -27,3 +27,14 @@ const DisputeSchema = new Schema<IDispute>({
 }, { timestamps: true });
 
 export const Dispute = mongoose.model<IDispute>("Dispute", DisputeSchema);
+
+export const getDisputes = (query?: any) => {
+    if (query) {
+        return Dispute.find(query).sort({ createdAt: -1 });
+    }
+    return Dispute.find().sort({ createdAt: -1 });
+};
+
+export const getDisputeById = (id: string) => Dispute.findById(id);
+export const updateDisputeById = (id: string, values: Partial<IDispute>) =>
+    Dispute.findByIdAndUpdate(id, values, { new: true, runValidators: true });

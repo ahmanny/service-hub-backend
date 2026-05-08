@@ -2,6 +2,7 @@ import { Router } from 'express';
 import * as controller from '../controllers/consumer/consumer.controller';
 import { AuthMiddleware } from '../middlewares';
 import * as userController from '../controllers/user.controller';
+import * as notificationController from '../controllers/notification.controller';
 
 export const consumerRoutes = Router();
 const authMiddleware = new AuthMiddleware();
@@ -37,3 +38,11 @@ consumerRoutes.delete('/address/:addressId', controller.deleteAddress());
  * Search & Booking
  */
 consumerRoutes.get('/providers/:providerId', controller.getProviderProfileForBooking());
+
+/**
+ * Notifications
+ */
+consumerRoutes.get('/notifications', notificationController.getConsumerNotifications());
+consumerRoutes.get('/notifications/unread-count', notificationController.getConsumerUnreadCount());
+consumerRoutes.patch('/notifications/:id/read', notificationController.markConsumerNotificationRead());
+consumerRoutes.patch('/notifications/read-all', notificationController.markAllConsumerNotificationsRead());

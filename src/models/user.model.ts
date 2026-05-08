@@ -11,10 +11,15 @@ export interface IUser {
   providerEmail?: string;
   isProviderEmailVerified: boolean;
 
+  // Admin Keys
+  adminEmail?: string;
+  adminRole?: 'super-admin' | 'support' | 'finance';
+  isAdminVerified: boolean;
+
   consumerPushTokens: string[];
   providerPushTokens: string[];
 
-  activeRoles: ('consumer' | 'provider')[];
+  activeRoles: ('consumer' | 'provider' | 'admin')[];
 }
 
 const UserSchema = new Schema<IUser>({
@@ -65,10 +70,29 @@ const UserSchema = new Schema<IUser>({
     default: [],
     index: true
   },
+
+  // Admin-specific fields
+  adminEmail: {
+    type: String,
+    unique: true,
+    sparse: true,
+    lowercase: true,
+    trim: true
+  },
+  adminRole: {
+    type: String,
+    enum: ['super-admin', 'support', 'finance'],
+    sparse: true
+  },
+  isAdminVerified: {
+    type: Boolean,
+    default: false
+  },
+
   // Roles tracking
   activeRoles: {
     type: [String],
-    enum: ['consumer', 'provider'],
+    enum: ['consumer', 'provider', 'admin'],
     default: []
   }
 }, {
@@ -87,6 +111,7 @@ export const getUsers = () => User.find();
 // Find by specific role phone
 export const getUserByConsumerPhone = (phone: string) => User.findOne({ consumerPhone: phone });
 export const getUserByProviderPhone = (phone: string) => User.findOne({ providerPhone: phone });
+export const getUserByAdminEmail = (email: string) => User.findOne({ adminEmail: email.toLowerCase() });
 
 // Global check: Find a user who owns this phone number in ANY role
 export const findUserByAnyPhone = (phone: string) =>
