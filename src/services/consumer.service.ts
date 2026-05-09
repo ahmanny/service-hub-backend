@@ -152,7 +152,7 @@ class ConsumerServiceClass {
     ) {
         const { update, addressId, consumerId } = payload
         const { label, formattedAddress, latitude, longitude } = update;
-        console.log("Payload", payload)
+        
 
         // Build the update object dynamically for the specific array element
         const updateFields: any = {};
@@ -165,7 +165,7 @@ class ConsumerServiceClass {
             };
         }
 
-        console.log("Fields", updateFields)
+        
 
         const updatedConsumer = await Consumer.findOneAndUpdate(
             { _id: consumerId, "addresses._id": addressId },

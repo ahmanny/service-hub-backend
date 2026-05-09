@@ -42,7 +42,7 @@ class EmailServiceClass {
                 });
             return 'Otp sent succesfully';
         } catch (error) {
-            console.log(error);
+            
             throw new Exception("Could not send otp")
         }
     }
@@ -87,7 +87,7 @@ class EmailServiceClass {
             return 'reset password link was sent succesfully';
 
         } catch (error) {
-            console.log(error);
+            
             throw new Exception("Could not send reset password link")
         }
 
