@@ -760,7 +760,7 @@ class ProviderServiceClass {
             throw new NotFoundException(`Provider with ID ${providerId} not found`);
         }
 
-        console.log(`Updating rating stats for provider ${providerId}: +${newStars} stars`);
+        
 
         // Update Raw Stats
         provider.totalStars = (provider.totalStars || 0) + newStars;

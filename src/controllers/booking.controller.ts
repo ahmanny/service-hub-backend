@@ -71,7 +71,7 @@ export const getBookings = (): RequestHandler => {
 
             ok_handler(res, "Bookings retrieved successfully", data);
         } catch (error) {
-            console.log(error)
+            
             error_handler(error, req, res);
         }
     };
@@ -155,7 +155,7 @@ export const handleBookingAction = (): RequestHandler => {
 export const getRescheduleSchedule = (): RequestHandler => {
     return async (req: Request, res: Response): Promise<void> => {
         try {
-            console.log("am here so get me reschedule data")
+            
             const { bookingId } = req.params;
             const userId = req.consumerProfile?._id;
 
@@ -168,7 +168,7 @@ export const getRescheduleSchedule = (): RequestHandler => {
 
             ok_handler(res, "Provider schedule retrieved", data);
         } catch (error) {
-            console.log(error)
+            
             error_handler(error, req, res);
         }
     };

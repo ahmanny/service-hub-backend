@@ -19,8 +19,6 @@ export class AuthMiddleware {
 
     async validateToken(req: Request, res: Response, next: NextFunction) {
         try {
-            console.log('Validating token for request:', req);
-            console.log('Authorization header:', req.headers['authorization']);
             const token = await getUserTokenInfo({ req });
             if (!token?.is_valid_token || !token.user || !token.appType) {
                 throw new AuthenticationTokenException("Invalid or Expired authentication token")
@@ -41,7 +39,6 @@ export class AuthMiddleware {
     public authorizeRole(roles: 'consumer' | 'provider' | 'admin' | Array<'consumer' | 'provider' | 'admin'>) {
         return async (req: Request, res: Response, next: NextFunction) => {
             try {
-                console.log('Authorizing role for appType:', req.appType, 'and user:', req.currentUser);
                 if (!req.currentUser || !req.appType) {
                     throw new AuthenticationTokenException("Unauthorized");
                 }
