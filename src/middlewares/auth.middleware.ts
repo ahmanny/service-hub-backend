@@ -25,7 +25,7 @@ export class AuthMiddleware {
             }
             req.currentUser = token.user;
             req.appType = token.appType;
-            
+
             if (token.user.adminRole) {
                 req.adminRole = token.user.adminRole;
             }
@@ -39,6 +39,7 @@ export class AuthMiddleware {
     public authorizeRole(roles: 'consumer' | 'provider' | 'admin' | Array<'consumer' | 'provider' | 'admin'>) {
         return async (req: Request, res: Response, next: NextFunction) => {
             try {
+                console.log('Authorizing role for appType:', req.appType, 'and user:', req.currentUser);
                 if (!req.currentUser || !req.appType) {
                     throw new AuthenticationTokenException("Unauthorized");
                 }
