@@ -21,7 +21,7 @@ export const getUserTokenInfo = async ({ req, token, token_type }: TGetUserToken
     }
 
     try {
-        const _token = token ?? req?.query?.token as string ?? req?.headers.authorization?.split(' ')[1] ?? req?.cookies?.['access-token'];
+        const _token = token ?? req?.headers.authorization?.split(' ')[1] ?? req?.query?.token ?? req?.cookies?.['access-token'];
 
         if (!_token) {
             console.error('Token not found in request or arguments');
