@@ -6,12 +6,16 @@ import { BLOCK_DURATION_HOURS, MAX_COOLDOWN_SECONDS, MAX_SEND_PER_HOUR, MAX_VERI
 import TooManyAttemptsException from "../exceptions/TooManyAttemptsException";
 import { AppRole, generateTokens, getUserTokenInfo } from "../utils";
 import { getUserById, User } from "../models/user.model";
+import { createAdmin, getAdminByEmail, getAdminById, updateAdminLastLogin } from "../models/admin.model";
+import { AdminRole as AdminRoleType } from "../types/admin.type";
+import bcrypt from "bcryptjs";
 import InvalidAccessCredentialsExceptions from "../exceptions/InvalidAccessCredentialsException";
 import { RefreshToken } from "../models/refresh-token.model";
 import ResourceNotFoundException from "../exceptions/ResourceNotFoundException";
 import MissingParameterException from "../exceptions/MissingParameterException";
 import { ConsumerService } from "./consumer.service";
 import { ProviderService } from "./provider/provider.service";
+import { AuditLogService } from "./audit-log.service";
 
 
 
@@ -138,7 +142,7 @@ class AuthServiceClass {
     }
 
     // verify otp function
-    public async verifyOtp(payload: { phone: string, otp: string, appType: AppRole }) {
+    public async verifyOtp(payload: { phone: string, otp: string, appType: "consumer" | "provider" }) {
         const { phone, otp, appType } = payload;
         if (!phone || !otp || !appType) throw new Exception("Phone, OTP, and App Type are required");
 
@@ -205,6 +209,79 @@ class AuthServiceClass {
         };
     }
 
+    public async loginAdmin(payload: { email: string; password: string }) {
+        const { email, password } = payload;
+        if (!email || !password) {
+            throw new MissingParameterException("Email and password are required");
+        }
+
+        const admin = await getAdminByEmail(email.toLowerCase());
+        if (!admin || !admin.isActive) {
+            throw new InvalidAccessCredentialsExceptions("Invalid admin credentials");
+        }
+
+        const isValidPassword = await bcrypt.compare(password, admin.password);
+        if (!isValidPassword) {
+            throw new InvalidAccessCredentialsExceptions("Invalid admin credentials");
+        }
+
+        await updateAdminLastLogin(admin._id.toString());
+
+        const tokens = await generateTokens(admin, "admin");
+        await AuditLogService.record({
+            actorId: admin._id,
+            actorType: 'admin',
+            action: 'admin_login',
+            targetType: 'admin',
+            targetId: admin._id,
+            outcome: 'success',
+            details: {
+                email: admin.email,
+            },
+        });
+        return {
+            tokens,
+            user: {
+                _id: admin._id.toString(),
+                email: admin.email,
+                role: admin.role,
+                firstName: admin.firstName,
+                lastName: admin.lastName,
+                isActive: admin.isActive,
+            },
+        };
+    }
+
+    public async createSuperadmin() {
+        const email = process.env.ADMIN_EMAIL;
+        const password = process.env.ADMIN_PASSWORD;
+        const role = (process.env.ADMIN_ROLE as AdminRoleType) || 'super-admin';
+
+        if (!email || !password) {
+            console.log('[Superadmin] ADMIN_EMAIL and ADMIN_PASSWORD not set in .env - skipping superadmin creation');
+            return null;
+        }
+
+        const existingAdmin = await getAdminByEmail(email.toLowerCase());
+        if (existingAdmin) {
+            console.log(`[Superadmin] Admin already exists: ${email}`);
+            return existingAdmin;
+        }
+
+        const passwordHash = await bcrypt.hash(password, 10);
+        const admin = await createAdmin({
+            email: email.toLowerCase(),
+            password: passwordHash,
+            role,
+            isActive: true,
+            firstName: process.env.ADMIN_FIRST_NAME || 'Admin',
+            lastName: process.env.ADMIN_LAST_NAME || 'User',
+        });
+        
+        console.log(`[Superadmin] Created superadmin: ${email} (role: ${role})`);
+        return admin;
+    }
+
     // fetch 
     // ]remaing cooldown
     public async getCooldown(payload: { phone: string }) {
@@ -234,7 +311,14 @@ class AuthServiceClass {
         if (!tokenInDb) {
             throw new ResourceNotFoundException("in valid session token try login in again")
         }
-        const userDb = await getUserById(user?._id)
+
+        let userDb = null;
+        if (appType === 'admin') {
+            userDb = await getAdminById(user?._id);
+        } else {
+            userDb = await getUserById(user?._id)
+        }
+
         if (!userDb) {
             throw new ResourceNotFoundException("User not found")
         }

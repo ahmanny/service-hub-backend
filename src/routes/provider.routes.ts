@@ -4,6 +4,8 @@ import * as earningController from '../controllers/provider/earnings.controller'
 import * as userController from '../controllers/user.controller';
 import { AuthMiddleware } from '../middlewares';
 import * as bankController from '../controllers/bank.controller';
+import * as withdrawController from '../controllers/provider/withdraw.controller';
+import * as notificationController from '../controllers/notification.controller';
 
 export const providerRoutes = Router();
 const authMiddleware = new AuthMiddleware();
@@ -52,6 +54,8 @@ providerRoutes.patch('/update-profile-photo', upload.fields([
 providerRoutes.patch('/update-payout-details', controller.updatePayoutDetails());
 providerRoutes.get('/banks', bankController.getSupportedBanks());
 providerRoutes.get('/resolve-bank', bankController.resolveBankAccount());
+providerRoutes.post('/withdraw', withdrawController.createWithdrawal());
+providerRoutes.get('/withdrawals', withdrawController.getWithdrawalHistory());
 /**
  * LOGISTICS (GEOSPATIAL & DELIVERY) 
 */
@@ -70,3 +74,11 @@ providerRoutes.patch('/update-availability', controller.updateAvailability());
 
 
 providerRoutes.get('/earnings-dashboard', earningController.getEarningsDashboard());
+
+/**
+ * NOTIFICATIONS
+ */
+providerRoutes.get('/notifications', notificationController.getProviderNotifications());
+providerRoutes.get('/notifications/unread-count', notificationController.getProviderUnreadCount());
+providerRoutes.patch('/notifications/:id/read', notificationController.markProviderNotificationRead());
+providerRoutes.patch('/notifications/read-all', notificationController.markAllProviderNotificationsRead());

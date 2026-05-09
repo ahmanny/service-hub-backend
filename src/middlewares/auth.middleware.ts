@@ -6,6 +6,14 @@ import UnauthorizedAccessException from '../exceptions/UnauthorizedAccessExcepti
 import { getConsumerByUserId } from '../models/consumer.model';
 import { Provider } from '../models/provider.model';
 
+declare global {
+    namespace Express {
+        interface Request {
+            adminRole?: 'super-admin' | 'support' | 'finance';
+        }
+    }
+}
+
 export class AuthMiddleware {
     constructor() { }
 
@@ -17,6 +25,10 @@ export class AuthMiddleware {
             }
             req.currentUser = token.user;
             req.appType = token.appType;
+            
+            if (token.user.adminRole) {
+                req.adminRole = token.user.adminRole;
+            }
 
             next(); // Proceed to next
         } catch (error) {
@@ -24,7 +36,7 @@ export class AuthMiddleware {
         }
     }
 
-    public authorizeRole(roles: 'consumer' | 'provider' | Array<'consumer' | 'provider'>) {
+    public authorizeRole(roles: 'consumer' | 'provider' | 'admin' | Array<'consumer' | 'provider' | 'admin'>) {
         return async (req: Request, res: Response, next: NextFunction) => {
             try {
                 if (!req.currentUser || !req.appType) {

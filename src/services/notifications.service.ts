@@ -4,6 +4,7 @@ import { Provider } from '../models/provider.model';
 import { User } from '../models/user.model';
 import { Model } from 'mongoose';
 import { AppRole } from '../utils';
+import { NotificationHistoryService } from './notification-history.service';
 
 const expo = new Expo();
 
@@ -39,11 +40,32 @@ class NotificationServiceClass {
         body: string,
         data?: Record<string, unknown>
     ) {
+        if (role === 'admin') {
+            console.log(`[Notification] Admin notifications not supported`);
+            return;
+        }
+
+        // Save notification to database for history
+        const notificationType = this.getNotificationType(data);
+        try {
+            await NotificationHistoryService.createNotification(
+                userId,
+                role,
+                title,
+                body,
+                notificationType,
+                data as Record<string, any>
+            );
+        } catch (saveErr) {
+            console.error("[NotificationService] Failed to save notification:", saveErr);
+        }
+
         const user = await User.findById(userId).select('consumerPushTokens providerPushTokens').lean();
         if (!user) return;
 
-        // Pick tokens based on the role the notification is intended for
-        const tokens = role === 'consumer' ? user.consumerPushTokens : user.providerPushTokens;
+        let tokens: string[] = [];
+        if (role === 'consumer') tokens = user.consumerPushTokens || [];
+        else if (role === 'provider') tokens = user.providerPushTokens || [];
 
         if (!tokens || tokens.length === 0) {
             console.log(`[Notification] No tokens found for user ${userId} as ${role}`);
@@ -51,6 +73,55 @@ class NotificationServiceClass {
         }
 
         await this.dispatchPush(tokens, title, body, role, data);
+    }
+
+    /**
+     * Determine notification type from data
+     */
+    private getNotificationType(data?: Record<string, unknown>): "welcome" | "booking" | "payment" | "withdrawal" | "approval" | "system" {
+        if (!data) return "system";
+        const type = data.type as string;
+        if (type === "welcome") return "welcome";
+        if (type === "booking" || type === "PAYMENT_REQUIRED" || type === "BOOKING_CONFIRMED") return "booking";
+        if (type === "payment" || type === "PAYMENT_COMPLETED") return "payment";
+        if (type === "withdrawal" || type === "withdrawal_pending") return "withdrawal";
+        if (type === "approval" || type === "rejection") return "approval";
+        return "system";
+    }
+
+    public async broadcastPushNotification(title: string, message: string, targetRole?: AppRole) {
+        if (targetRole === 'admin') {
+            console.log(`[Notification] Admin broadcast not supported`);
+            return;
+        }
+
+        const query: any = {};
+        
+        if (targetRole === 'consumer') {
+            query.consumerPushTokens = { $exists: true, $ne: [] };
+        } else if (targetRole === 'provider') {
+            query.providerPushTokens = { $exists: true, $ne: [] };
+        }
+
+        const users = await User.find(query).select('consumerPushTokens providerPushTokens').lean();
+        
+        const allTokens: string[] = [];
+        for (const user of users) {
+            if (targetRole === 'consumer') {
+                allTokens.push(...(user.consumerPushTokens || []));
+            } else if (targetRole === 'provider') {
+                allTokens.push(...(user.providerPushTokens || []));
+            } else {
+                allTokens.push(
+                    ...(user.consumerPushTokens || []),
+                    ...(user.providerPushTokens || [])
+                );
+            }
+        }
+
+        if (allTokens.length > 0) {
+            await this.dispatchPush(allTokens, title, message, targetRole || 'consumer', {});
+        }
     }
 
     /**
@@ -100,6 +171,8 @@ class NotificationServiceClass {
      * Handle receipt tickets to clean up dead tokens from specific role arrays
      */
     private async handleTickets(tickets: ExpoPushTicket[], chunk: ExpoPushMessage[], role: AppRole) {
+        if (role === 'admin') return;
+
         const tokenField = role === 'consumer' ? 'consumerPushTokens' : 'providerPushTokens';
 
         tickets.forEach(async (ticket, index) => {

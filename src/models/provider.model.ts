@@ -197,3 +197,8 @@ ProviderSchema.index({ "serviceArea.location": "2dsphere" });
 ProviderSchema.index({ serviceType: 1, isAvailable: 1, status: 1 });
 
 export const Provider = model<IProviderProfile>("Provider", ProviderSchema);
+
+export const getProviders = () => Provider.find();
+export const getProviderById = (id: string) => Provider.findById(id);
+export const updateProviderById = (id: string, values: Partial<IProviderProfile>) =>
+    Provider.findByIdAndUpdate(id, values, { new: true, runValidators: true });
