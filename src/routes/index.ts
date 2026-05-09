@@ -9,6 +9,7 @@ import { AuthMiddleware } from '../middlewares';
 import { userRoutes } from './user.routes';
 import { SearchRoutes } from './search.routes';
 import { webhookRoutes } from './webhook.route';
+import { marketingRoutes } from './marketing.route';
 const routes = Router();
 const Middleware = new AuthMiddleware();
 
@@ -20,6 +21,7 @@ routes.get('/', (_req, res) => {
 routes.use('/authentication', authenticationRoutes);
 routes.use('/auth', authRoutes);
 routes.use("/webhooks", webhookRoutes);
+routes.use("/marketing", marketingRoutes);
 
 // Admin stream endpoint - skip global validateToken
 routes.use('/admin', (req, res, next) => {
