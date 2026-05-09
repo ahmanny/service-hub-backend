@@ -31,12 +31,14 @@ routes.use('/admin', (req, res, next) => {
     return Middleware.validateToken(req, res, next);
 });
 
+routes.use('/admin', adminRoutes);
+
 // Protected routes
+routes.use(Middleware.validateToken.bind(Middleware));
 routes.use('/users', userRoutes);
 routes.use('/search', SearchRoutes);
 routes.use('/consumer', consumerRoutes);
 routes.use('/provider', providerRoutes);
 routes.use('/bookings', bookingRoutes);
-routes.use('/admin', adminRoutes);
 
 export default routes;
