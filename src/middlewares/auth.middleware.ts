@@ -19,6 +19,8 @@ export class AuthMiddleware {
 
     async validateToken(req: Request, res: Response, next: NextFunction) {
         try {
+            console.log('Validating token for request:', req);
+            console.log('Authorization header:', req.headers['authorization']);
             const token = await getUserTokenInfo({ req });
             if (!token?.is_valid_token || !token.user || !token.appType) {
                 throw new AuthenticationTokenException("Invalid or Expired authentication token")
