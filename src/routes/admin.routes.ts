@@ -9,10 +9,9 @@ const authMiddleware = new AuthMiddleware();
 export const adminRoutes = Router();
 
 adminRoutes.get('/dashboard-stream', adminController.streamDashboardStats());
+adminRoutes.get('/dashboard-stats', checkAdminPermission('all'), adminController.getAdminDashboardStats());
 
 adminRoutes.use(authMiddleware.authorizeRole('admin'));
-
-adminRoutes.get('/dashboard-stats', adminController.getAdminDashboardStats());
 adminRoutes.get('/audit-logs', adminController.getAuditLogs());
 
 // Export routes - super-admin and finance only
