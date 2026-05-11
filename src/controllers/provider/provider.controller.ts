@@ -246,3 +246,13 @@ export const updatePayoutDetails = () => async (req: Request, res: Response) => 
         ok_handler(res, "Payout details updated successfully", data);
     } catch (error) { error_handler(error, req, res); }
 };
+
+export const dismissStatusBanner = () => async (req: Request, res: Response) => {
+    try {
+        if (!req.providerProfile) {
+            throw new UnauthorizedAccessException("Unauthorized");
+        }
+        const data = await ProviderService.dismissStatusBanner(req.providerProfile!._id.toString());
+        ok_handler(res, "Status banner dismissed", data);
+    } catch (error) { error_handler(error, req, res); }
+};

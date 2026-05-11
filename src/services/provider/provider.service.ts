@@ -746,6 +746,11 @@ class ProviderServiceClass {
         };
     }
 
+    public async dismissStatusBanner(providerId: string) {
+        await Provider.findByIdAndUpdate(providerId, { statusBannerDismissed: true });
+        return { dismissed: true };
+    }
+
 
     // This method is called after a new rating is created to update the provider's aggregate rating stats.
 

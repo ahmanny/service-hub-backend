@@ -78,6 +78,7 @@ export interface IProviderProfile extends Document {
 
     payoutDetails?: IPayoutDetails;
     paystackRecipientCode?: string;
+    statusBannerDismissed?: boolean;
 }
 
 // Schemas
@@ -186,7 +187,8 @@ const ProviderSchema = new Schema<IProviderProfile>(
             type: PayoutDetailsSchema,
             default: null
         },
-        paystackRecipientCode: { type: String, default: null }
+        paystackRecipientCode: { type: String, default: null },
+        statusBannerDismissed: { type: Boolean, default: false }
     },
     { timestamps: true }
 );

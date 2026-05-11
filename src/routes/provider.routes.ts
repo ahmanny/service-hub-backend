@@ -71,6 +71,7 @@ providerRoutes.get('/dashboard-data', controller.getDashboardData())
 providerRoutes.patch('/toggle-availability', controller.toggleAvailability());
 providerRoutes.patch('/update-services', controller.updateServices());
 providerRoutes.patch('/update-availability', controller.updateAvailability());
+providerRoutes.patch('/dismiss-status-banner', controller.dismissStatusBanner());
 
 
 providerRoutes.get('/earnings-dashboard', earningController.getEarningsDashboard());
