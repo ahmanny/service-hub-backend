@@ -211,15 +211,23 @@ class WalletServiceClass {
     }) {
         const idempotencyKey = `${payload.bookingId}:${payload.entryType}`;
 
+        const doc = {
+            bookingId: payload.bookingId.toString(),
+            providerId: payload.providerId.toString(),
+            paymentId: payload.paymentId?.toString(),
+            walletId: payload.walletId?.toString(),
+            entryType: payload.entryType,
+            fromStatus: payload.fromStatus,
+            toStatus: payload.toStatus,
+            amount: payload.amount,
+            reference: payload.reference,
+            currency: "NGN",
+            idempotencyKey,
+        };
+
         await FinancialLedger.updateOne(
             { idempotencyKey },
-            {
-                $setOnInsert: {
-                    ...payload,
-                    idempotencyKey,
-                    currency: "NGN",
-                },
-            },
+            { $setOnInsert: doc },
             { upsert: true, session: payload.session }
         );
     }

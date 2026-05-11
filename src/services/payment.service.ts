@@ -156,11 +156,11 @@ class PaymentServiceClass {
             payment.paidAt = new Date();
             await payment.save({ session });
 
-            booking.paymentStatus = PaymentStatus.HELD;
+booking.paymentStatus = PaymentStatus.HELD;
             await booking.save({ session });
 
             await WalletService.createPendingEarningFromEscrow({
-                booking,
+                booking: booking.toObject(),
                 paymentId: payment._id,
                 paymentReference: payment.reference,
                 session,
