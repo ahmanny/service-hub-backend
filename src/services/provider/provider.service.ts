@@ -126,7 +126,7 @@ class ProviderServiceClass {
             homeServiceAvailable: offersHomeService,
             offersShopVisit,
 
-            ...(shopAddress && {
+            ...(shopAddress && shopAddress.formattedAddress && {
                 shopAddress: {
                     address: shopAddress.formattedAddress,
                     city: shopAddress.city,

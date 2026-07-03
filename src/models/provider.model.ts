@@ -176,7 +176,10 @@ const ProviderSchema = new Schema<IProviderProfile>(
         },
 
         avgServiceTime: { type: Number, default: 60 }, // Default 60 mins
-        shopAddress: ProviderShopAddressSchema,
+        shopAddress: {
+            type: ProviderShopAddressSchema,
+            default: undefined
+        },
         availability: [{
             dayOfWeek: Number,
             slots: [{ start: String, end: String }],
