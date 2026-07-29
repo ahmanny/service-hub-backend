@@ -12,16 +12,19 @@ export const discoverProviders = (): RequestHandler => {
             if (!req.currentUser) {
                 throw new UnauthorizedAccessException("Unauthorized");
             }
-            const { serviceType, lat, lng } = req.query;
+            const { serviceType, lat, lng, q, query } = req.query;
 
             if (!serviceType || !lat || !lng) {
                 throw new BadRequestException("Missing required query parameters: serviceType, lat, lng");
             }
 
+            const searchQuery = (q as string) || (query as string) || undefined;
+
             const payload: SearchPayload = {
                 serviceType: serviceType as string,
                 lat: parseFloat(lat as string),
-                lng: parseFloat(lng as string)
+                lng: parseFloat(lng as string),
+                q: searchQuery ? searchQuery.trim() : undefined,
             };
 
             const data = await SearchService.discoverProviders(payload);
