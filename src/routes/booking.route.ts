@@ -8,6 +8,9 @@ const authMiddleware = new AuthMiddleware();
 
 
 
+bookingRoutes.get('/unrated-pending', authMiddleware.authorizeRole("consumer"), controller.getUnratedPendingBooking());
+bookingRoutes.put('/:bookingId/dismiss-rating', authMiddleware.authorizeRole("consumer"), controller.dismissRatingPrompt());
+
 bookingRoutes.get('',
     authMiddleware.authorizeRole(["consumer", "provider"]),
     controller.getBookings());

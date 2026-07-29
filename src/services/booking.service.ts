@@ -809,6 +809,28 @@ class BookingServiceClass {
         }
     }
 
+    async getUnratedPendingBooking(consumerId: string) {
+        return Booking.findOne({
+            consumerId,
+            status: BookingStatus.COMPLETED,
+            isRated: false,
+            isRatingDismissed: { $ne: true },
+        })
+            .sort({ updatedAt: -1 })
+            .populate("providerId", "firstName profilePicture rating reviewCount serviceType")
+            .populate("consumerId", "firstName lastName");
+    }
+
+    async dismissRatingPrompt(bookingId: string, consumerId: string) {
+        const booking = await Booking.findOne({ _id: bookingId, consumerId });
+        if (!booking) {
+            throw new ResourceNotFoundException("Booking not found");
+        }
+        booking.isRatingDismissed = true;
+        await booking.save();
+        return booking;
+    }
+
 }
 
 export const BookingService = new BookingServiceClass();
