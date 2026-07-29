@@ -787,11 +787,13 @@ class BookingServiceClass {
                 const data: any = {
                     bookingId: booking._id.toString(),
                     screen: "BookingDetails",
-                    action
+                    action,
+                    url: `/booking-details/${booking._id.toString()}`
                 };
 
                 if (action === "accept") {
                     data.type = "PAYMENT_REQUIRED";
+                    data.action = "PAYMENT_REQUIRED";
                 }
 
                 return NotificationService.sendByProfile(
