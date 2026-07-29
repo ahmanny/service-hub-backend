@@ -295,8 +295,10 @@ class BookingServiceClass {
         disputeReason?: DisputeReason;
         rating?: number;
         comment?: string;
+        tags?: string[];
+        evidence?: string[];
     }) {
-        const { bookingId, action, reason, newScheduledAt, userId, disputeReason, rating, comment } = payload;
+        const { bookingId, action, reason, newScheduledAt, userId, disputeReason, rating, comment, tags, evidence } = payload;
         const session = await mongoose.startSession();
         session.startTransaction();
 
@@ -429,7 +431,7 @@ class BookingServiceClass {
                         userId,
                         reason: disputeReason || DisputeReason.OTHER,  // In this context, 'reason' is the 'type' of dispute
                         description: payload.reason || "Dispute raised by customer", // Fallback description
-                        evidence: [], // You can expand the payload to accept evidence if needed
+                        evidence: evidence || [], 
                     }, session);
 
                     break;
