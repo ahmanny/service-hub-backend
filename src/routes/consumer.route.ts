@@ -40,6 +40,12 @@ consumerRoutes.delete('/address/:addressId', controller.deleteAddress());
 consumerRoutes.get('/providers/:providerId', controller.getProviderProfileForBooking());
 
 /**
+ * Favourites Management
+ */
+consumerRoutes.post('/favourites/:providerId', controller.toggleFavourite());
+consumerRoutes.get('/favourites', controller.getFavourites());
+
+/**
  * Notifications
  */
 consumerRoutes.get('/notifications', notificationController.getConsumerNotifications());

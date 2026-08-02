@@ -173,3 +173,51 @@ export const getRescheduleSchedule = (): RequestHandler => {
         }
     };
 };
+
+export const getActiveBooking = (): RequestHandler => {
+    return async (req: Request, res: Response): Promise<void> => {
+        try {
+            const consumerId = req.consumerProfile?._id;
+            if (!consumerId) throw new UnauthorizedAccessException("Consumer profile required");
+
+            const data = await BookingService.getActiveBooking(consumerId.toString());
+            console.log("🔍 GET /v1/bookings/active FOR CONSUMER:", consumerId.toString());
+            console.log("📦 FOUND ACTIVE BOOKING DATA:", JSON.stringify(data, null, 2));
+
+            ok_handler(res, "Active booking retrieved", data);
+        } catch (error) {
+            console.error("❌ ERROR IN getActiveBooking CONTROLLER:", error);
+            error_handler(error, req, res);
+        }
+    };
+};
+
+export const getUnratedPendingBooking = (): RequestHandler => {
+    return async (req: Request, res: Response): Promise<void> => {
+        try {
+            const consumerId = req.consumerProfile?._id;
+            if (!consumerId) throw new UnauthorizedAccessException("Consumer profile required");
+
+            const data = await BookingService.getUnratedPendingBooking(consumerId.toString());
+            ok_handler(res, "Unrated pending booking retrieved", data);
+        } catch (error) {
+            error_handler(error, req, res);
+        }
+    };
+};
+
+export const dismissRatingPrompt = (): RequestHandler => {
+    return async (req: Request, res: Response): Promise<void> => {
+        try {
+            const consumerId = req.consumerProfile?._id;
+            const { bookingId } = req.params;
+            if (!consumerId) throw new UnauthorizedAccessException("Consumer profile required");
+            if (!bookingId) throw new MissingParameterException("Booking ID required");
+
+            const data = await BookingService.dismissRatingPrompt(bookingId, consumerId.toString());
+            ok_handler(res, "Rating prompt dismissed", data);
+        } catch (error) {
+            error_handler(error, req, res);
+        }
+    };
+};

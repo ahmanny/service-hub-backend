@@ -9,7 +9,7 @@ class SearchServiceClass {
     }
 
     public async discoverProviders(payload: SearchPayload) {
-        const { serviceType, lat, lng } = payload;
+        const { serviceType, lat, lng, q } = payload;
 
         const isAll = serviceType === "all";
         const limit = isAll ? 4 : 40;
@@ -19,7 +19,7 @@ class SearchServiceClass {
 
         const results = await Promise.all(
             categories.map(async (type) => {
-                const providers = await this.executeDiscoveryEngine(type, lat, lng, limit);
+                const providers = await this.executeDiscoveryEngine(type, lat, lng, limit, q);
                 return {
                     type,
                     providers: this.mapToSearchResult(providers)
@@ -37,12 +37,6 @@ class SearchServiceClass {
         return results[0].providers; // Returns ProviderListItem[]
     }
 
-
-
-
-
-
-
     /**
      * THE DISCOVERY ENGINE
      * Handles: 
@@ -50,7 +44,25 @@ class SearchServiceClass {
      * 2. Service Area Radius 
      * 3. Bayesian Ranking
      */
-    private async executeDiscoveryEngine(type: string, lat: number, lng: number, limit: number) {
+    private async executeDiscoveryEngine(type: string, lat: number, lng: number, limit: number, q?: string) {
+        const geoNearQuery: any = {
+            serviceType: type,
+            status: "approved",
+            isAvailable: true,
+            "serviceArea.location": { $exists: true }
+        };
+
+        if (q && q.trim()) {
+            const regex = new RegExp(q.trim(), "i");
+            geoNearQuery.$or = [
+                { businessName: regex },
+                { bio: regex },
+                { serviceType: regex },
+                { "services.name": regex },
+                { "services.description": regex }
+            ];
+        }
+
         return await Provider.aggregate([
             {
                 $geoNear: {
@@ -59,12 +71,7 @@ class SearchServiceClass {
                     distanceMultiplier: 0.001, // Meters to KM
                     key: "shopAddress.location",
                     spherical: true,
-                    query: {
-                        serviceType: type,
-                        status: "approved",
-                        isAvailable: true,
-                        "serviceArea.location": { $exists: true }
-                    },
+                    query: geoNearQuery,
                 },
             },
             {

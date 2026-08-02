@@ -6,6 +6,7 @@ export interface IRating extends Document {
     consumerId: Types.ObjectId;
     rating: number; // 1-5
     comment?: string;
+    tags?: string[];
     createdAt: Date;
 }
 
@@ -15,6 +16,7 @@ const RatingSchema = new Schema<IRating>({
     consumerId: { type: Schema.Types.ObjectId, ref: "Consumer", required: true },
     rating: { type: Number, required: true, min: 1, max: 5 },
     comment: { type: String, trim: true, maxlength: 500 },
+    tags: [{ type: String }],
 }, { timestamps: { createdAt: true, updatedAt: false } });
 
 export const Rating = model<IRating>("Rating", RatingSchema);

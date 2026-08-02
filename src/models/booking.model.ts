@@ -59,6 +59,7 @@ export interface IBooking extends Document {
     autoStarted: boolean;
     isDisputed: boolean;
     isRated: boolean;
+    isRatingDismissed?: boolean;
 
     reminders: {
         oneHourSent: boolean,
@@ -180,6 +181,7 @@ const BookingSchema = new Schema<IBooking>(
         autoStarted: { type: Boolean, default: false },
         isDisputed: { type: Boolean, default: false },
         isRated: { type: Boolean, default: false },
+        isRatingDismissed: { type: Boolean, default: false },
 
         reminders: {
             oneHourSent: { type: Boolean, default: false },

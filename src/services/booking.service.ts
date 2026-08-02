@@ -295,8 +295,10 @@ class BookingServiceClass {
         disputeReason?: DisputeReason;
         rating?: number;
         comment?: string;
+        tags?: string[];
+        evidence?: string[];
     }) {
-        const { bookingId, action, reason, newScheduledAt, userId, disputeReason, rating, comment } = payload;
+        const { bookingId, action, reason, newScheduledAt, userId, disputeReason, rating, comment, tags, evidence } = payload;
         const session = await mongoose.startSession();
         session.startTransaction();
 
@@ -429,7 +431,7 @@ class BookingServiceClass {
                         userId,
                         reason: disputeReason || DisputeReason.OTHER,  // In this context, 'reason' is the 'type' of dispute
                         description: payload.reason || "Dispute raised by customer", // Fallback description
-                        evidence: [], // You can expand the payload to accept evidence if needed
+                        evidence: evidence || [], 
                     }, session);
 
                     break;
@@ -785,11 +787,13 @@ class BookingServiceClass {
                 const data: any = {
                     bookingId: booking._id.toString(),
                     screen: "BookingDetails",
-                    action
+                    action,
+                    url: `/booking-details/${booking._id.toString()}`
                 };
 
                 if (action === "accept") {
                     data.type = "PAYMENT_REQUIRED";
+                    data.action = "PAYMENT_REQUIRED";
                 }
 
                 return NotificationService.sendByProfile(
@@ -803,6 +807,113 @@ class BookingServiceClass {
         } catch (err) {
             console.error("Non-blocking Notification Error:", err);
         }
+    }
+
+    async getActiveBooking(consumerId: string) {
+        const queryConsumerId = Types.ObjectId.isValid(consumerId)
+            ? new Types.ObjectId(consumerId)
+            : consumerId;
+
+        const booking = await Booking.findOne({
+            consumerId: queryConsumerId,
+            status: {
+                $in: [
+                    BookingStatus.PENDING,
+                    BookingStatus.ACCEPTED,
+                    BookingStatus.IN_PROGRESS,
+                    BookingStatus.COMPLETION_PENDING,
+                ],
+            },
+        })
+            .sort({ updatedAt: -1 })
+            .populate("providerId", "firstName profilePicture rating reviewCount serviceType phone")
+            .populate("consumerId", "firstName lastName");
+
+        console.log("🔍 DB QUERY SEARCHED CONSUMER ID:", consumerId, "RESULT BOOKING ID:", booking ? booking._id.toString() : "NULL (NOT FOUND)");
+
+        if (!booking) return null;
+
+        const provider: any = booking.providerId;
+        const consumer: any = booking.consumerId;
+
+        return {
+            _id: booking._id.toString(),
+            serviceName: booking.serviceName,
+            serviceType: booking.serviceType,
+            status: booking.status,
+            paymentStatus: booking.paymentStatus,
+            price: booking.price,
+            scheduledAt: booking.scheduledAt?.toISOString(),
+            disputeDeadline: booking.disputeDeadline?.toISOString(),
+            deadlineAt: booking.deadlineAt?.toISOString(),
+            createdAt: booking.createdAt?.toISOString(),
+            providerId: provider
+                ? {
+                      _id: provider._id?.toString(),
+                      firstName: provider.firstName,
+                      profilePicture: provider.profilePicture || null,
+                      rating: provider.rating || 5.0,
+                      reviewCount: provider.reviewCount || 0,
+                      phone: provider.phone,
+                      serviceType: provider.serviceType,
+                  }
+                : null,
+            consumerId: consumer
+                ? {
+                      _id: consumer._id?.toString(),
+                      firstName: consumer.firstName,
+                      lastName: consumer.lastName,
+                  }
+                : null,
+        };
+    }
+
+    async getUnratedPendingBooking(consumerId: string) {
+        const queryConsumerId = Types.ObjectId.isValid(consumerId)
+            ? new Types.ObjectId(consumerId)
+            : consumerId;
+
+        const booking = await Booking.findOne({
+            consumerId: queryConsumerId,
+            status: BookingStatus.COMPLETED,
+            isRated: false,
+            isRatingDismissed: { $ne: true },
+        })
+            .sort({ updatedAt: -1 })
+            .populate("providerId", "firstName profilePicture rating reviewCount serviceType")
+            .populate("consumerId", "firstName lastName");
+
+        if (!booking) return null;
+
+        const provider: any = booking.providerId;
+
+        return {
+            _id: booking._id.toString(),
+            serviceName: booking.serviceName,
+            status: booking.status,
+            isRated: booking.isRated,
+            price: booking.price,
+            providerId: provider
+                ? {
+                      _id: provider._id?.toString(),
+                      firstName: provider.firstName,
+                      profilePicture: provider.profilePicture || null,
+                      rating: provider.rating || 5.0,
+                      reviewCount: provider.reviewCount || 0,
+                      serviceType: provider.serviceType,
+                  }
+                : null,
+        };
+    }
+
+    async dismissRatingPrompt(bookingId: string, consumerId: string) {
+        const booking = await Booking.findOne({ _id: bookingId, consumerId });
+        if (!booking) {
+            throw new ResourceNotFoundException("Booking not found");
+        }
+        booking.isRatingDismissed = true;
+        await booking.save();
+        return booking;
     }
 
 }
