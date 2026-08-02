@@ -14,7 +14,7 @@ class CloudinaryServiceClass {
         return new Promise((resolve, reject) => {
             const uploadStream = cloudinary.uploader.upload_stream(
                 {
-                    folder: `your_app_name/${folder}`,
+                    folder: `Proxxi-App/${folder}`,
                     public_id: publicId,
                     overwrite: true,
                     resource_type: 'auto',
