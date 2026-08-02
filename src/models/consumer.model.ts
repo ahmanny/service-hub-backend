@@ -23,6 +23,8 @@ export interface IConsumerProfile {
 
   addresses: IConsumerAddress[];
 
+  favourites?: Types.ObjectId[];
+
   verification?: IConsumerVerification;
   verificationStatus?: ConsumerVerificationStatus;
 }
@@ -50,6 +52,7 @@ const ConsumerSchema = new Schema<IConsumerProfile>({
   avatarUrl: { type: String },
 
   addresses: [AddressSchema],
+  favourites: [{ type: Schema.Types.ObjectId, ref: "Provider" }],
 
   verification: {
     idUri: { type: String },

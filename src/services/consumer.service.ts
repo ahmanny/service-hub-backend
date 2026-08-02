@@ -407,6 +407,65 @@ class ConsumerServiceClass {
         };
     }
 
+    public async toggleFavourite(consumerId: string, providerId: string) {
+        const consumer = await Consumer.findById(consumerId);
+        if (!consumer) {
+            throw new ResourceNotFoundException("Consumer profile not found");
+        }
+
+        const providerObjectId = new Types.ObjectId(providerId);
+        const favourites = consumer.favourites || [];
+        const isFavourited = favourites.some(id => id.toString() === providerId);
+
+        let updatedConsumer;
+        if (isFavourited) {
+            updatedConsumer = await Consumer.findByIdAndUpdate(
+                consumerId,
+                { $pull: { favourites: providerObjectId } },
+                { new: true }
+            );
+        } else {
+            updatedConsumer = await Consumer.findByIdAndUpdate(
+                consumerId,
+                { $addToSet: { favourites: providerObjectId } },
+                { new: true }
+            );
+        }
+
+        const newIsFavourited = !isFavourited;
+        return {
+            isFavourited: newIsFavourited,
+            favourites: updatedConsumer?.favourites || [],
+            message: newIsFavourited ? "Provider added to favourites" : "Provider removed from favourites"
+        };
+    }
+
+    public async getFavourites(consumerId: string) {
+        const consumer = await Consumer.findById(consumerId).populate({
+            path: "favourites",
+            select: "firstName profilePicture serviceType rating reviewCount services shopAddress basePriceFrom weightedRating",
+        });
+
+        if (!consumer) {
+            throw new ResourceNotFoundException("Consumer profile not found");
+        }
+
+        const favourites = (consumer.favourites || []).map((provider: any) => ({
+            _id: provider._id.toString(),
+            firstName: provider.firstName,
+            profilePicture: provider.profilePicture || null,
+            serviceType: provider.serviceType,
+            rating: provider.rating || 5.0,
+            reviewCount: provider.reviewCount || 0,
+            services: provider.services || [],
+            shopAddress: provider.shopAddress || null,
+            basePriceFrom: provider.basePriceFrom || 0,
+            isTopRated: (provider.weightedRating || 0) > 4.5,
+        }));
+
+        return favourites;
+    }
+
     /**
      * PRIVATE UTILS
      */

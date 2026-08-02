@@ -224,4 +224,45 @@ export const changeNumber = (): RequestHandler => {
     };
 };
 
+export const toggleFavourite = (): RequestHandler => {
+    return async (req: Request, res: Response): Promise<void> => {
+        try {
+            if (!req.consumerProfile) {
+                throw new UnauthorizedAccessException("Unauthorized");
+            }
+            const { providerId } = req.params;
+            if (!providerId) {
+                throw new MissingParameterException("Provider ID is missing");
+            }
+
+            const data = await ConsumerService.toggleFavourite(
+                req.consumerProfile._id.toString(),
+                providerId
+            );
+
+            ok_handler(res, data.message, data);
+        } catch (error) {
+            error_handler(error, req, res);
+        }
+    };
+};
+
+export const getFavourites = (): RequestHandler => {
+    return async (req: Request, res: Response): Promise<void> => {
+        try {
+            if (!req.consumerProfile) {
+                throw new UnauthorizedAccessException("Unauthorized");
+            }
+
+            const data = await ConsumerService.getFavourites(
+                req.consumerProfile._id.toString()
+            );
+
+            ok_handler(res, "Favourites retrieved successfully", data);
+        } catch (error) {
+            error_handler(error, req, res);
+        }
+    };
+};
+
 
