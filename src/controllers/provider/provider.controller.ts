@@ -40,21 +40,22 @@ export const completeProfile = (): RequestHandler => {
                 throw new MissingParameterException("Missing required verification images.");
             }
 
+            const timestamp = Date.now();
             const [profileRes, idRes, selfieRes] = await Promise.all([
                 CloudinaryService.uploadImage(
                     files.profilePicture[0].buffer,
-                    'profiles',
-                    `provider_profile_${req.currentUser._id}`
+                    'provider-profiles',
+                    `provider_profile_${req.currentUser._id}_${timestamp}`
                 ),
                 CloudinaryService.uploadImage(
                     files.idImage[0].buffer,
                     'verification',
-                    `provider_id_${req.currentUser._id}`
+                    `provider_id_${req.currentUser._id}_${timestamp}`
                 ),
                 CloudinaryService.uploadImage(
                     files.selfieImage[0].buffer,
                     'verification',
-                    `provider_selfie_${req.currentUser._id}`
+                    `provider_selfie_${req.currentUser._id}_${timestamp}`
                 )
             ]);
 
