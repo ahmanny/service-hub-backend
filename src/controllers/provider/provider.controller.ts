@@ -113,7 +113,7 @@ export const updateProfilePhoto = (): RequestHandler => {
                 CloudinaryService.uploadImage(
                     files.profilePicture[0].buffer,
                     'provider-profiles',
-                    `provider_profile_${req.currentUser._id}`
+                    `provider_profile_${req.currentUser._id}_${Date.now()}`
                 ),
             ])
             const profilePictureUrl = profileRes.secure_url;
