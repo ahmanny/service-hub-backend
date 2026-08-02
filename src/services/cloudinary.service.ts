@@ -8,7 +8,7 @@ class CloudinaryServiceClass {
      */
     public async uploadImage(
         fileBuffer: Buffer,
-        folder: 'profiles' | 'verification' | 'services',
+        folder: 'consumer-profiles' | 'provider-profiles' | 'verification' | 'services' | 'disputes' | 'profiles',
         publicId?: string
     ): Promise<UploadApiResponse> {
         return new Promise((resolve, reject) => {

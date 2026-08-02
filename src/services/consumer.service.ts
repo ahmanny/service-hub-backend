@@ -18,11 +18,44 @@ import { JwtService } from './jwt.service';
 import { ServiceType } from '../types/service.types';
 import { ProviderListItem } from '../types/providers.types';
 import { Booking } from '../models/booking.model';
+import { CloudinaryService } from './cloudinary.service';
 
 
 class ConsumerServiceClass {
     constructor() {
         // super()
+    }
+
+    public async updateProfilePhoto(payload: {
+        consumerId: string,
+        profilePicture: string
+    }) {
+        const { consumerId, profilePicture } = payload;
+
+        const consumer = await Consumer.findById(consumerId).select('profilePicture userId');
+
+        if (!consumer) {
+            throw new ResourceNotFoundException("Consumer profile not found");
+        }
+
+        const oldPhotoUrl = consumer.profilePicture;
+
+        consumer.profilePicture = profilePicture;
+        consumer.avatarUrl = profilePicture;
+        await consumer.save();
+
+        if (consumer.userId) {
+            await User.findByIdAndUpdate(consumer.userId, { profilePicture });
+        }
+
+        if (oldPhotoUrl && oldPhotoUrl !== profilePicture) {
+            CloudinaryService.deleteImage(oldPhotoUrl).catch(err => console.error(err));
+        }
+
+        return {
+            message: "Profile photo updated successfully",
+            profilePicture: consumer.profilePicture
+        };
     }
 
     // complete profile after sucessfull otp verification

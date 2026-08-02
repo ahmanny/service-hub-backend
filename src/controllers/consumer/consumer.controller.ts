@@ -5,6 +5,7 @@ import { Consumer } from "../../models/consumer.model";
 import { AuthService } from "../../services/auth.service";
 import { BookingService } from "../../services/booking.service";
 import { ConsumerService } from "../../services/consumer.service";
+import { CloudinaryService } from "../../services/cloudinary.service";
 import { error_handler, ok_handler } from "../../utils/response_handler";
 import { Request, RequestHandler, Response } from "express";
 
@@ -262,6 +263,36 @@ export const getFavourites = (): RequestHandler => {
         } catch (error) {
             error_handler(error, req, res);
         }
+    };
+};
+
+export const updateProfilePhoto = (): RequestHandler => {
+    return async (req: Request, res: Response): Promise<void> => {
+        try {
+            if (!req.currentUser) throw new UnauthorizedAccessException("Unauthorized");
+
+            if (!req.consumerProfile) {
+                throw new UnauthorizedAccessException("Unauthorized");
+            }
+            const files = req.files as { [fieldname: string]: Express.Multer.File[] };
+            if (!files || !files.profilePicture || !files.profilePicture[0]) {
+                throw new MissingParameterException("Please upload a profilePicture file");
+            }
+
+            const [profileRes] = await Promise.all([
+                CloudinaryService.uploadImage(
+                    files.profilePicture[0].buffer,
+                    'consumer-profiles',
+                    `consumer_profile_${req.currentUser._id}`
+                ),
+            ]);
+            const profilePictureUrl = profileRes.secure_url;
+            const data = await ConsumerService.updateProfilePhoto({
+                profilePicture: profilePictureUrl,
+                consumerId: req.consumerProfile._id.toString()
+            });
+            ok_handler(res, "Photo updated successfully", data);
+        } catch (error) { error_handler(error, req, res); }
     };
 };
 

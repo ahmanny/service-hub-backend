@@ -112,7 +112,7 @@ export const updateProfilePhoto = (): RequestHandler => {
             const [profileRes] = await Promise.all([
                 CloudinaryService.uploadImage(
                     files.profilePicture[0].buffer,
-                    'profiles',
+                    'provider-profiles',
                     `provider_profile_${req.currentUser._id}`
                 ),
             ])

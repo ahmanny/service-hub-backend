@@ -19,12 +19,18 @@ consumerRoutes.use(authMiddleware.authorizeRole("consumer"));
 
 consumerRoutes.get('/me', controller.getProfile());
 
+import multer from 'multer';
+const upload = multer({ storage: multer.memoryStorage() });
+
 /**
  * Personal Information Management
  */
 consumerRoutes.patch('/update-name', controller.updateName());
 consumerRoutes.post('/change-email', controller.changeEmail());
 consumerRoutes.patch('/change-phone', controller.changeNumber());
+consumerRoutes.patch('/update-profile-photo', upload.fields([
+    { name: 'profilePicture', maxCount: 1 },
+]), controller.updateProfilePhoto());
 
 /**
  * Address Management

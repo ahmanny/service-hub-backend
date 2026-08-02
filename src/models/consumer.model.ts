@@ -20,6 +20,7 @@ export interface IConsumerProfile {
   firstName?: string;
   lastName?: string;
   avatarUrl?: string;
+  profilePicture?: string;
 
   addresses: IConsumerAddress[];
 
@@ -50,6 +51,7 @@ const ConsumerSchema = new Schema<IConsumerProfile>({
   firstName: { type: String, trim: true },
   lastName: { type: String, trim: true },
   avatarUrl: { type: String },
+  profilePicture: { type: String },
 
   addresses: [AddressSchema],
   favourites: [{ type: Schema.Types.ObjectId, ref: "Provider" }],
