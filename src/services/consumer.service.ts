@@ -15,6 +15,7 @@ import TooManyAttemptsException from '../exceptions/TooManyAttemptsException';
 import { BLOCK_DURATION_HOURS, MAX_VERIFY_ATTEMPTS } from '../configs/otpPolicy';
 import { hashOtp } from '../utils/otp.utils';
 import { JwtService } from './jwt.service';
+import { EmailService } from './email.service';
 import { ServiceType } from '../types/service.types';
 import { ProviderListItem } from '../types/providers.types';
 import { Booking } from '../models/booking.model';
@@ -365,6 +366,14 @@ class ConsumerServiceClass {
         const verificationUrl = `${process.env.FRONTEND_URL || 'https://proxxi.app'}/v1/consumer/verify-email?token=${verificationToken}`;
 
         console.log(`✉️ [CONSUMER EMAIL VERIFICATION] Target: ${targetEmail} | OTP Code: ${otpCode} | 1-Click URL: ${verificationUrl}`);
+
+        // Dispatch Email via Mailjet
+        await EmailService.sendVerificationOtpEmail({
+            email: targetEmail,
+            otpCode,
+            verificationUrl,
+            name: profile.firstName ? `${profile.firstName} ${profile.lastName}`.trim() : undefined,
+        });
 
         return {
             message: `Verification code & link sent to ${targetEmail}`,
