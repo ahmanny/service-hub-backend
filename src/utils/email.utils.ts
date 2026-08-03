@@ -1,7 +1,19 @@
-import fs from 'fs/promises'; // Correct fs import
+import fs from 'fs/promises';
+import fsSync from 'fs';
 import Handlebars from 'handlebars';
 import path from 'path';
 
+function getTemplatePath(templateFileName: string): string {
+    const distPath = path.resolve(__dirname, '..', 'templates', templateFileName);
+    if (fsSync.existsSync(distPath)) {
+        return distPath;
+    }
+    const srcPath = path.resolve(process.cwd(), 'src', 'templates', templateFileName);
+    if (fsSync.existsSync(srcPath)) {
+        return srcPath;
+    }
+    return distPath;
+}
 
 interface resetPasswordEmailData {
     token: string,
@@ -10,11 +22,10 @@ interface resetPasswordEmailData {
     lastName: string,
 }
 
-
 export async function getVerificationEmailContent({ token, email, firstName, lastName }: resetPasswordEmailData): Promise<string> {
     try {
         const clientResetPasswordUrl = process.env.CLIENT_RESET_PASSWORD_URL || 'http://localhost:3000/auth/reset-password'
-        const templatePath = path.resolve(__dirname, '..', 'templates', 'resetPasswordEmail.template.hbs');
+        const templatePath = getTemplatePath('resetPasswordEmail.template.hbs');
 
         const templateSource = await fs.readFile(templatePath, 'utf-8');
 
@@ -33,7 +44,7 @@ export async function getVerificationEmailContent({ token, email, firstName, las
 
 export async function getEmailVerificationContent(data: { otpCode: string; verificationUrl: string }): Promise<string> {
     try {
-        const templatePath = path.resolve(__dirname, '..', 'templates', 'emailVerification.template.hbs');
+        const templatePath = getTemplatePath('emailVerification.template.hbs');
         const templateSource = await fs.readFile(templatePath, 'utf-8');
         const template = Handlebars.compile(templateSource);
 
