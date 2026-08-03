@@ -14,6 +14,9 @@ consumerRoutes.patch('/save-token', userController.savePushToken('consumer'));
 consumerRoutes.patch('/complete-profile', controller.completeProfile());
 
 
+// Public 1-click email link verification
+consumerRoutes.get('/verify-email', controller.verifyEmailUpdate());
+
 // Middleware: ensure user is logged in AND has a consumer profile context
 consumerRoutes.use(authMiddleware.authorizeRole("consumer"));
 
@@ -27,6 +30,8 @@ const upload = multer({ storage: multer.memoryStorage() });
  */
 consumerRoutes.patch('/update-name', controller.updateName());
 consumerRoutes.post('/change-email', controller.changeEmail());
+consumerRoutes.post('/send-email-otp', controller.sendEmailOtp());
+consumerRoutes.post('/verify-email-otp', controller.verifyEmailOtp());
 consumerRoutes.patch('/change-phone', controller.changeNumber());
 consumerRoutes.patch('/update-profile-photo', upload.fields([
     { name: 'profilePicture', maxCount: 1 },
