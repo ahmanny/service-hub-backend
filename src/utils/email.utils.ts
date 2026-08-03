@@ -31,3 +31,19 @@ export async function getVerificationEmailContent({ token, email, firstName, las
     }
 }
 
+export async function getEmailVerificationContent(data: { otpCode: string; verificationUrl: string }): Promise<string> {
+    try {
+        const templatePath = path.resolve(__dirname, '..', 'templates', 'emailVerification.template.hbs');
+        const templateSource = await fs.readFile(templatePath, 'utf-8');
+        const template = Handlebars.compile(templateSource);
+
+        return template({
+            ...data,
+            year: new Date().getFullYear(),
+        });
+    } catch (error) {
+        console.error("Error reading or compiling email verification template:", error);
+        throw error;
+    }
+}
+

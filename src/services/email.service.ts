@@ -3,7 +3,7 @@ import mailjetClient from "../configs/mailjet.config";
 import Exception from "../exceptions/Exception";
 import jwt from 'jsonwebtoken';
 import { SendResetPasswordLinkEmailPayload } from "../types/email.types";
-import { getVerificationEmailContent } from "../utils/email.utils";
+import { getEmailVerificationContent, getVerificationEmailContent } from "../utils/email.utils";
 
 
 
@@ -87,17 +87,41 @@ class EmailServiceClass {
             return 'reset password link was sent succesfully';
 
         } catch (error) {
-            
             throw new Exception("Could not send reset password link")
         }
-
-
-
     }
 
+    public async sendVerificationOtpEmail(payload: { email: string; otpCode: string; verificationUrl: string; name?: string }) {
+        const { email, otpCode, verificationUrl, name } = payload;
+        const htmlPart = await getEmailVerificationContent({ otpCode, verificationUrl });
 
-
-
+        try {
+            await mailjetClient
+                .post("send", { version: "v3.1" })
+                .request({
+                    Messages: [
+                        {
+                            From: {
+                                Email: process.env.EMAIL_FROM || "noreply@proxxi.app",
+                                Name: "Proxxi"
+                            },
+                            To: [
+                                {
+                                    Email: email,
+                                    Name: name || "Proxxi User"
+                                }
+                            ],
+                            Subject: `${otpCode} is your Proxxi verification code`,
+                            HTMLPart: htmlPart
+                        }
+                    ]
+                });
+            return true;
+        } catch (error) {
+            console.error("Mailjet send error:", error);
+            throw new Exception("Could not send verification email");
+        }
+    }
 }
 
 
