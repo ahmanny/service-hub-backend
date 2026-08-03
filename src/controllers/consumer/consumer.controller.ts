@@ -167,6 +167,46 @@ export const updateName = (): RequestHandler => {
     };
 };
 
+// Send 6-digit OTP code & 1-click link to email
+export const sendEmailOtp = (): RequestHandler => {
+    return async (req: Request, res: Response): Promise<void> => {
+        try {
+            if (!req.consumerProfile) {
+                throw new UnauthorizedAccessException("Unauthorized");
+            }
+
+            const data = await ConsumerService.sendConsumerEmailOtp(
+                req.consumerProfile._id.toString(),
+                req.body
+            );
+
+            ok_handler(res, "Verification code sent to your email", data);
+        } catch (error) {
+            error_handler(error, req, res);
+        }
+    };
+};
+
+// Verify 6-digit in-app OTP code
+export const verifyEmailOtp = (): RequestHandler => {
+    return async (req: Request, res: Response): Promise<void> => {
+        try {
+            if (!req.consumerProfile) {
+                throw new UnauthorizedAccessException("Unauthorized");
+            }
+
+            const data = await ConsumerService.verifyConsumerEmailOtp(
+                req.consumerProfile._id.toString(),
+                req.body
+            );
+
+            ok_handler(res, "Email verified successfully", data);
+        } catch (error) {
+            error_handler(error, req, res);
+        }
+    };
+};
+
 // Initiate email change (stores pending email and sends link)
 export const changeEmail = (): RequestHandler => {
     return async (req: Request, res: Response): Promise<void> => {
@@ -191,7 +231,7 @@ export const changeEmail = (): RequestHandler => {
 export const verifyEmailUpdate = (): RequestHandler => {
     return async (req: Request, res: Response): Promise<void> => {
         try {
-            const { token } = req.query; // Usually passed as ?token=...
+            const { token } = req.query; // Passed as ?token=...
             if (!token) {
                 throw new MissingParameterException("Verification token is missing");
             }

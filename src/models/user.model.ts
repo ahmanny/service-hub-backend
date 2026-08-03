@@ -5,6 +5,8 @@ export interface IUser {
   consumerPhone?: string;
   consumerEmail?: string;
   isConsumerEmailVerified: boolean;
+  consumerEmailOtpHash?: string;
+  consumerEmailOtpExpiresAt?: Date;
 
   // Provider Keys
   providerPhone?: string;
@@ -56,6 +58,9 @@ const UserSchema = new Schema<IUser>({
   // Verification flags
   isConsumerEmailVerified: { type: Boolean, default: false },
   isProviderEmailVerified: { type: Boolean, default: false },
+
+  consumerEmailOtpHash: { type: String },
+  consumerEmailOtpExpiresAt: { type: Date },
 
   // Consumer-specific device tokens
   consumerPushTokens: {

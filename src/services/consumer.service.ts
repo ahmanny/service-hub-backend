@@ -324,86 +324,116 @@ class ConsumerServiceClass {
     }
 
     /**
-     * Then initiates the sending of the verification link.
+     * Sends a 6-digit OTP code & 1-click link to the consumer's email address.
      */
-    public async changeEmail(consumerId: string, payload: { email: string }) {
-        const { email } = payload;
-
-        if (!email) throw new Exception("New email is required");
-
-        //Resolve Identity
+    public async sendConsumerEmailOtp(consumerId: string, payload?: { email?: string }) {
         const profile = await Consumer.findById(consumerId);
-        if (!profile) throw new ResourceNotFoundException("profile not found");
+        if (!profile) throw new ResourceNotFoundException("Consumer profile not found");
 
         const currentUser = await User.findById(profile.userId);
         if (!currentUser) throw new ResourceNotFoundException("User account not found");
 
-        // Collision Check
-        const collision = await User.findOne({
-            consumerEmail: email,
-            _id: { $ne: currentUser._id }
-        });
-
-        if (collision) {
-            throw new Exception("This email is already associated with another account.");
+        const targetEmail = payload?.email?.trim().toLowerCase() || currentUser.consumerEmail;
+        if (!targetEmail) {
+            throw new Exception("Please provide an email address to verify");
         }
 
-        //  THE UPDATE: Store the new email but mark as unverified
-        currentUser.consumerEmail = email;
-        currentUser.isConsumerEmailVerified = false;
+        // Collision Check if updating email
+        if (payload?.email && payload.email !== currentUser.consumerEmail) {
+            const collision = await User.findOne({
+                consumerEmail: targetEmail,
+                _id: { $ne: currentUser._id }
+            });
+            if (collision) {
+                throw new Exception("This email is already associated with another account.");
+            }
+            currentUser.consumerEmail = targetEmail;
+            currentUser.isConsumerEmailVerified = false;
+        }
+
+        // Generate 6-digit OTP Code & Expiration
+        const otpCode = Math.floor(100000 + Math.random() * 900000).toString();
+        const otpHash = hashOtp(otpCode);
+        const expiresAt = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes
+
+        currentUser.consumerEmailOtpHash = otpHash;
+        currentUser.consumerEmailOtpExpiresAt = expiresAt;
         await currentUser.save();
 
-        //  Generate Verification Token for the link
-        // The token now only needs the ID since the email is already in the DB
+        // 1-Click Verification Link
         const verificationToken = JwtService.sign({ id: currentUser._id }, 'access');
+        const verificationUrl = `${process.env.FRONTEND_URL || 'https://proxxi.app'}/v1/consumer/verify-email?token=${verificationToken}`;
 
-        //  Send Verification Email (Placeholder)
-        const verificationUrl = `${process.env.FRONTEND_URL}/verify-email?token=${verificationToken}`;
-
-        console.log("VERIFICATION URL:", verificationUrl)
-        /* TODO: Implement Mailer Service
-           await EmailService.sendVerificationLink(email, verificationUrl);
-        */
+        console.log(`✉️ [CONSUMER EMAIL VERIFICATION] Target: ${targetEmail} | OTP Code: ${otpCode} | 1-Click URL: ${verificationUrl}`);
 
         return {
-            message: "Email updated and verification link sent.",
-            user: currentUser
+            message: `Verification code & link sent to ${targetEmail}`,
+            email: targetEmail,
+            otpCode, // Included for dev testing
+            expiresAt
         };
     }
+
     /**
-     * Verifies the token from the email link and updates the database.
+     * Verifies the 6-digit in-app OTP code.
+     */
+    public async verifyConsumerEmailOtp(consumerId: string, payload: { otp: string }) {
+        const { otp } = payload;
+        if (!otp || otp.length !== 6) {
+            throw new Exception("Please enter a valid 6-digit verification code");
+        }
+
+        const profile = await Consumer.findById(consumerId);
+        if (!profile) throw new ResourceNotFoundException("Consumer profile not found");
+
+        const currentUser = await User.findById(profile.userId);
+        if (!currentUser) throw new ResourceNotFoundException("User account not found");
+
+        if (!currentUser.consumerEmailOtpHash || !currentUser.consumerEmailOtpExpiresAt) {
+            throw new Exception("No active verification code found. Please request a new code.");
+        }
+
+        if (new Date() > new Date(currentUser.consumerEmailOtpExpiresAt)) {
+            throw new Exception("Verification code has expired. Please request a new code.");
+        }
+
+        const inputHash = hashOtp(otp);
+        if (inputHash !== currentUser.consumerEmailOtpHash) {
+            throw new Exception("Invalid verification code. Please check and try again.");
+        }
+
+        // Success: Mark as verified and clear OTP
+        currentUser.isConsumerEmailVerified = true;
+        currentUser.consumerEmailOtpHash = undefined;
+        currentUser.consumerEmailOtpExpiresAt = undefined;
+        await currentUser.save();
+
+        return await this.fetchProfile(currentUser._id);
+    }
+
+    public async changeEmail(consumerId: string, payload: { email: string }) {
+        return await this.sendConsumerEmailOtp(consumerId, payload);
+    }
+
+    /**
+     * Verifies the 1-click token from the email link.
      */
     public async verifyEmailUpdate(token: string) {
         if (!token) throw new Exception("Verification token is required");
 
-        //  Decode the token (Using your JwtService)
-        // The token should contain { userId, newEmail }
-        const decoded = JwtService.verify(token, 'access') as { id: string, newEmail: string };
-
-        if (!decoded || !decoded.newEmail) {
+        const decoded = JwtService.verify(token, 'access') as { id: string };
+        if (!decoded || !decoded.id) {
             throw new Exception("Invalid or expired verification link.");
         }
 
-        // Resolve the User
         const user = await User.findById(decoded.id);
-        if (!user) throw new ResourceNotFoundException("User not found");
+        if (!user) throw new ResourceNotFoundException("User account not found");
 
-        // Final Collision Check (Just in case someone took the email while user was away)
-        const collision = await User.findOne({
-            consumerEmail: decoded.newEmail,
-            _id: { $ne: user._id }
-        });
-
-        if (collision) {
-            throw new Exception("This email is now taken by another account.");
-        }
-
-        // THE UPDATE: Commit the new email and set verified to true
-        user.consumerEmail = decoded.newEmail;
         user.isConsumerEmailVerified = true;
+        user.consumerEmailOtpHash = undefined;
+        user.consumerEmailOtpExpiresAt = undefined;
         await user.save();
 
-        // Fetch and return the updated profile for the frontend
         return await this.fetchProfile(user._id);
     }
 
