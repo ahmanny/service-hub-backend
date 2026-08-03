@@ -363,7 +363,7 @@ class ConsumerServiceClass {
 
         // 1-Click Verification Link
         const verificationToken = JwtService.sign({ id: currentUser._id }, 'access');
-        const verificationUrl = `${process.env.FRONTEND_URL || 'https://proxxi.app'}/v1/consumer/verify-email?token=${verificationToken}`;
+        const verificationUrl = `${process.env.FRONTEND_URL || 'https://proxxi.app'}/verify-email?token=${verificationToken}`;
 
         console.log(`✉️ [CONSUMER EMAIL VERIFICATION] Target: ${targetEmail} | OTP Code: ${otpCode} | 1-Click URL: ${verificationUrl}`);
 
